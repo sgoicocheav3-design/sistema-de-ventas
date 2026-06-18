@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#2f8f46" />
+  <meta name="description" content="Healthy Desserts - prototipo mobile-first para estudiantes con recomendaciones personalizadas y pedidos mock." />
+  <title>Healthy Desserts</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app" id="appRoot">
+    <main class="screen screen--auth" id="authScreen" aria-labelledby="authTitle">
+      <section class="auth-hero card card--highlight">
+        <div class="brand-mark" aria-hidden="true">
+          <span>HD</span>
+        </div>
+        <p class="eyebrow">Healthy Desserts</p>
+        <h1 id="authTitle">Repostería saludable pensada para estudiantes</h1>
+        <p class="lead">Un prototipo mobile-first con autenticación simulada, personalización inteligente y flujo de pedido listo para validar la experiencia.</p>
+        <div class="auth-pills" aria-label="Beneficios del producto">
+          <span>Hecho para celular</span>
+          <span>Mock auth</span>
+          <span>Pedidos rápidos</span>
+        </div>
+      </section>
+
+      <section class="card auth-card">
+        <h2>Iniciar sesión</h2>
+        <p class="muted">Usa una de las cuentas de prueba para acceder al prototipo.</p>
+        <div class="credential-grid" role="list" aria-label="Credenciales de acceso">
+          <article class="credential" role="listitem">
+            <strong>Alumno</strong>
+            <span>ID: 000255928</span>
+            <span>Clave inicial: 000255928</span>
+          </article>
+          <article class="credential" role="listitem">
+            <strong>Admin</strong>
+            <span>ID: Admin</span>
+            <span>Clave: Admin</span>
+          </article>
+        </div>
+        <form id="loginForm" class="form-stack" novalidate>
+          <label class="field">
+            <span>ID de usuario</span>
+            <input id="loginUser" name="loginUser" type="text" autocomplete="username" inputmode="text" placeholder="000255928" required />
+          </label>
+          <label class="field">
+            <span>Contraseña</span>
+            <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" placeholder="Ingresa tu contraseña" required />
+          </label>
+          <button class="button button--primary" type="submit">Entrar</button>
+          <p class="form-hint">La contraseña del alumno se cambia en el primer acceso dentro del sistema.</p>
+        </form>
+      </section>
+    </main>
+
+    <main class="screen screen--app is-hidden" id="studentScreen" aria-labelledby="studentHomeTitle">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="studentGreeting">Buen día</p>
+          <h1 id="studentHomeTitle">¿Qué te apetece hoy?</h1>
+        </div>
+        <button class="avatar-button" id="logoutStudent" type="button" aria-label="Cerrar sesión">MA</button>
+      </header>
+
+      <section class="card hero-panel card--highlight">
+        <div class="hero-copy">
+          <p class="mini-kicker">Energía saludable acumulada</p>
+          <div class="score-row">
+            <strong id="energyScore">55</strong>
+            <span>/100</span>
+          </div>
+          <div class="progress-track" aria-hidden="true"><span id="energyBar"></span></div>
+          <p class="muted" id="recommendationNote">Mantén el ritmo con un snack que acompañe tu estudio.</p>
+        </div>
+        <div class="hero-ornament" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Personalizador</p>
+            <h2>Encuentra tu postre ideal</h2>
+          </div>
+          <button class="text-button" id="restartQuizButton" type="button">Reiniciar</button>
+        </div>
+
+        <div class="wizard" aria-label="Flujo de personalización">
+          <div class="wizard__progress"><span id="wizardProgress"></span></div>
+          <p class="wizard__step" id="wizardStepLabel">Paso 1 de 3</p>
+          <h3 id="questionTitle">¿Qué tipo de dieta prefieres?</h3>
+          <div class="option-list" id="questionOptions"></div>
+          <button class="button button--primary button--sticky" id="wizardNextButton" type="button">Siguiente</button>
+        </div>
+      </section>
+
+      <section class="card card--accent" id="matchCard" aria-live="polite">
+        <p class="eyebrow">Tu match</p>
+        <div class="match-layout">
+          <div class="match-visual" id="matchVisual" aria-hidden="true"></div>
+          <div>
+            <h2 id="matchName">Brownie Keto Energizante</h2>
+            <p class="muted" id="matchDescription">Con cacao puro y nueces, ideal para vencer la fatiga mental.</p>
+            <div class="match-tags" id="matchTags"></div>
+            <div class="price-row">
+              <strong id="matchPrice">S/ 8.50</strong>
+              <span id="matchCalories">180 kcal</span>
+            </div>
+          </div>
+        </div>
+        <button class="button button--secondary" id="addMatchToCartButton" type="button">Añadir al carrito</button>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Menú inteligente</p>
+            <h2>Explora categorías</h2>
+          </div>
+          <button class="text-button" id="viewCartShortcut" type="button">Ver carrito</button>
+        </div>
+        <div class="filter-pills" id="menuFilters"></div>
+        <div class="product-grid" id="menuGrid"></div>
+      </section>
+
+      <section class="card is-hidden" id="cartSection">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Tu carrito</p>
+            <h2>Revisa y confirma</h2>
+          </div>
+          <button class="text-button" id="backToMenuButton" type="button">Volver</button>
+        </div>
+        <div class="cart-list" id="cartList"></div>
+        <form id="orderForm" class="form-stack" novalidate>
+          <label class="field">
+            <span>Aula / Salón</span>
+            <input id="classroomInput" name="classroomInput" type="text" inputmode="text" autocomplete="off" placeholder="G503" maxlength="4" required />
+            <small class="field-note">Ingresa el aula completa. Ejemplos: G503, C201, K607.</small>
+          </label>
+          <div class="summary-box">
+            <div><span>Subtotal</span><strong id="subtotalValue">S/ 0.00</strong></div>
+            <div class="summary-total"><span>Total</span><strong id="totalValue">S/ 0.00</strong></div>
+          </div>
+          <p class="field-note">Pago presencial al recoger el pedido. No hay pasarela de pago.</p>
+          <button class="button button--primary" type="submit">Confirmar pedido</button>
+        </form>
+      </section>
+
+      <section class="card is-hidden" id="profileSection">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Perfil</p>
+            <h2>Tu progreso y configuración</h2>
+          </div>
+          <button class="text-button" id="openChangePasswordButton" type="button">Cambiar contraseña</button>
+        </div>
+        <div class="profile-grid">
+          <article class="profile-stat">
+            <strong id="profileDays">12</strong>
+            <span>Días activos</span>
+          </article>
+          <article class="profile-stat">
+            <strong id="profileSnacks">27</strong>
+            <span>Snacks healthy</span>
+          </article>
+          <article class="profile-stat">
+            <strong id="profileCalories">9</strong>
+            <span>Café evitado</span>
+          </article>
+        </div>
+        <div class="profile-card">
+          <h3>Preferencias guardadas</h3>
+          <p id="savedPreferences">Personaliza tu experiencia para afinar recomendaciones futuras.</p>
+        </div>
+      </section>
+
+      <nav class="bottom-nav" aria-label="Navegación principal">
+        <button class="bottom-nav__item is-active" data-view="home" type="button">
+          <span aria-hidden="true">⌂</span>
+          <strong>Inicio</strong>
+        </button>
+        <button class="bottom-nav__item" data-view="menu" type="button">
+          <span aria-hidden="true">⌘</span>
+          <strong>Menú</strong>
+        </button>
+        <button class="bottom-nav__item" data-view="cart" type="button">
+          <span aria-hidden="true">◔</span>
+          <strong>Carrito</strong>
+          <span class="badge" id="cartBadge">0</span>
+        </button>
+        <button class="bottom-nav__item" data-view="profile" type="button">
+          <span aria-hidden="true">◉</span>
+          <strong>Perfil</strong>
+        </button>
+      </nav>
+    </main>
+
+    <main class="screen screen--app is-hidden" id="adminScreen" aria-labelledby="adminTitle">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Panel Admin</p>
+          <h1 id="adminTitle">Operación y pedidos</h1>
+        </div>
+        <button class="avatar-button" id="logoutAdmin" type="button" aria-label="Cerrar sesión">AD</button>
+      </header>
+
+      <section class="stats-grid">
+        <article class="stat-card stat-card--primary">
+          <span>Pedidos hoy</span>
+          <strong id="adminTodayOrders">18</strong>
+        </article>
+        <article class="stat-card">
+          <span>Ingresos</span>
+          <strong id="adminRevenue">S/ 246.50</strong>
+        </article>
+        <article class="stat-card">
+          <span>Entregas listas</span>
+          <strong id="adminReady">7</strong>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Pedidos</p>
+            <h2>Cola activa</h2>
+          </div>
+          <button class="text-button" id="resetDemoDataButton" type="button">Restablecer demo</button>
+        </div>
+        <div class="admin-orders" id="adminOrders"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Catálogo</p>
+            <h2>Productos destacados</h2>
+          </div>
+        </div>
+        <div class="admin-catalog" id="adminCatalog"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Usuarios</p>
+            <h2>Seguimiento estudiantil</h2>
+          </div>
+        </div>
+        <div class="student-list" id="studentList"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal is-hidden" id="passwordModal" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
+    <div class="modal__panel card">
+      <h2 id="passwordModalTitle">Crea tu nueva contraseña</h2>
+      <p class="muted">Es obligatorio en tu primer acceso para completar la activación de tu cuenta.</p>
+      <form id="passwordForm" class="form-stack" novalidate>
+        <label class="field">
+          <span>Nueva contraseña</span>
+          <input id="newPassword" type="password" minlength="8" autocomplete="new-password" required />
+        </label>
+        <label class="field">
+          <span>Confirmar contraseña</span>
+          <input id="confirmPassword" type="password" minlength="8" autocomplete="new-password" required />
+        </label>
+        <button class="button button--primary" type="submit">Guardar contraseña</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal is-hidden" id="orderConfirmationModal" role="dialog" aria-modal="true" aria-labelledby="orderConfirmationTitle">
+    <div class="modal__panel confirmation-panel card card--highlight">
+      <div class="confirmation-mark" aria-hidden="true">✓</div>
+      <p class="eyebrow">Pedido confirmado</p>
+      <h2 id="orderConfirmationTitle">Tu pedido quedó registrado</h2>
+      <p class="muted" id="orderConfirmationMessage">Tu pedido será preparado para entrega en el salón indicado.</p>
+      <div class="confirmation-details">
+        <span id="orderConfirmationCode">HD-0000</span>
+        <span id="orderConfirmationClassroom">Entrega en G503</span>
+        <strong id="orderConfirmationTotal">S/ 0.00</strong>
+      </div>
+      <button class="button button--primary" id="closeOrderConfirmationButton" type="button">Continuar</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="boot.js"></script>
+</body>
+</html>
