@@ -1,117 +1,36 @@
-# 🛒 Minimarket System
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Sistema de gestión para minimarket con módulos de ventas, inventario, reportes y control de acceso por roles.
+## Getting Started
 
-## Stack Tecnológico
-
-| Capa | Tecnología |
-|------|-----------|
-| Backend | Node.js + Express + Prisma v7 |
-| Base de Datos | PostgreSQL |
-| Frontend | React + Vite + Tailwind CSS v4 |
-| UI Components | shadcn/ui (Radix) |
-| Auth | JWT (jsonwebtoken) |
-
-## Roles de Usuario
-
-| Rol | Permisos |
-|-----|---------|
-| **ADMIN** | Acceso total al sistema |
-| **GERENTE** | Reportes, aprobación de solicitudes, configuración |
-| **VENDEDOR** | Registro de ventas, búsqueda de productos/clientes |
-| **ALMACENERO** | Inventario, entradas, bajas, solicitudes de reposición |
-
-## Requisitos Previos
-
-- Node.js >= 18
-- PostgreSQL >= 14
-- npm >= 9
-
-## Configuración
-
-### 1. Clonar y configurar Backend
+First, run the development server:
 
 ```bash
-cd backend
-# Editar .env con tus credenciales de PostgreSQL
-# DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/minimarket_db"
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-### 2. Crear la base de datos PostgreSQL
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```sql
-CREATE DATABASE minimarket_db;
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-### 3. Ejecutar migración y seed
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-```bash
-cd backend
-npx prisma migrate dev --name init
-node src/prisma/seed.js
-```
+## Learn More
 
-### 4. Iniciar el backend
+To learn more about Next.js, take a look at the following resources:
 
-```bash
-cd backend
-npm run dev       # Servidor en http://localhost:4000
-```
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-### 5. Iniciar el frontend
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-```bash
-cd frontend
-npm run dev       # App en http://localhost:5173
-```
+## Deploy on Vercel
 
-## Credenciales Iniciales (Seed)
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-> ⚠️ **Cambiar en producción**
-
-| Usuario | Email | Contraseña |
-|---------|-------|-----------|
-| Administrador | admin@minimarket.com | Admin1234! |
-| Gerente General | gerente@minimarket.com | Gerente1234! |
-
-## Estructura del Proyecto
-
-```
-sistema de ventas/
-├── backend/
-│   ├── src/
-│   │   ├── controllers/    # Lógica de negocio
-│   │   ├── routes/         # Endpoints Express
-│   │   ├── middlewares/    # Auth, roles, error handler
-│   │   └── prisma/
-│   │       ├── schema.prisma
-│   │       ├── client.js
-│   │       ├── migrations/
-│   │       └── seed.js
-│   ├── prisma.config.ts    # Prisma v7 config
-│   ├── server.js
-│   └── .env
-│
-└── frontend/
-    ├── src/
-    │   ├── components/     # shadcn/ui + custom
-    │   ├── pages/          # Vistas por módulo
-    │   ├── hooks/          # Custom hooks
-    │   ├── lib/            # axios, utils
-    │   ├── routes/         # React Router
-    │   └── store/          # AuthContext
-    └── .env
-```
-
-## Variables de Entorno — Backend
-
-```env
-DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/minimarket_db"
-JWT_SECRET="tu_secreto"
-JWT_EXPIRES_IN=8h
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=correo@gmail.com
-SMTP_PASS=app_password
-PORT=4000
-```
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

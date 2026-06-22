@@ -1,0 +1,325 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/lib/AuthContext'
+import Sidebar, { HeaderToggle } from '@/components/Sidebar'
+import { Search, Plus, Minus, Trash2, ShoppingCart, Printer, X, User } from 'lucide-react'
+
+interface Producto {
+  id: number
+  nombre: string
+  marca: string
+  precio: number
+  stock: number
+  categoria: { id: number; nombre: string }
+}
+
+interface CarritoItem {
+  productoId: number
+  nombre: string
+  precio: number
+  cantidad: number
+}
+
+export default function POSPage() {
+  const { user } = useAuth()
+  const [q, setQ] = useState('')
+  const [categoria, setCategoria] = useState('')
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [carrito, setCarrito] = useState<CarritoItem[]>([])
+  const [metodoPago, setMetodoPago] = useState('EFECTIVO')
+  const [montoRecibido, setMontoRecibido] = useState('')
+  const [clienteId, setClienteId] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [resultado, setResultado] = useState<{ numero: string; vuelto: number } | null>(null)
+  const [categorias, setCategorias] = useState<Array<{ id: number; nombre: string }>>([])
+
+  useEffect(() => {
+    fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => {})
+  }, [])
+
+  const search = useCallback(async (query: string, cat: string) => {
+    setSearching(true)
+    try {
+      const params = new URLSearchParams()
+      if (query.trim()) params.set('q', query)
+      if (cat) params.set('categoria', cat)
+      const res = await fetch(`/api/ventas?${params}`)
+      if (res.ok) setProductos(await res.json())
+    } catch {
+      // ignore
+    } finally {
+      setSearching(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const t = setTimeout(() => search(q, categoria), 300)
+    return () => clearTimeout(t)
+  }, [q, categoria, search])
+
+  const addToCart = (p: Producto) => {
+    setCarrito((prev) => {
+      const existing = prev.find((i) => i.productoId === p.id)
+      if (existing) {
+        if (existing.cantidad >= p.stock) return prev
+        return prev.map((i) => i.productoId === p.id ? { ...i, cantidad: i.cantidad + 1 } : i)
+      }
+      return [...prev, { productoId: p.id, nombre: p.nombre, precio: Number(p.precio), cantidad: 1 }]
+    })
+  }
+
+  const updateCantidad = (id: number, delta: number) => {
+    setCarrito((prev) => prev.map((i) => {
+      if (i.productoId !== id) return i
+      const nueva = i.cantidad + delta
+      return nueva <= 0 ? i : { ...i, cantidad: nueva }
+    }).filter((i) => i.cantidad > 0))
+  }
+
+  const removeFromCart = (id: number) => {
+    setCarrito((prev) => prev.filter((i) => i.productoId !== id))
+  }
+
+  const subtotal = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
+  const igv = subtotal * 0.18
+  const total = subtotal + igv
+  const recibido = parseFloat(montoRecibido) || 0
+  const vuelto = metodoPago === 'EFECTIVO' ? Math.max(0, recibido - total) : 0
+
+  const handleSubmit = async () => {
+    if (carrito.length === 0) return
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/ventas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: carrito.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
+          metodoPago,
+          montoRecibido: metodoPago === 'EFECTIVO' ? montoRecibido : total.toFixed(2),
+          clienteId: clienteId || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Error al procesar venta')
+
+      setResultado({ numero: data.numero, vuelto: Number(data.vuelto) })
+      setCarrito([])
+      setMontoRecibido('')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al procesar venta')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (resultado) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShoppingCart className="text-green-600" size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Venta Exitosa</h2>
+          <p className="text-gray-500 mb-1">N° {resultado.numero}</p>
+          {resultado.vuelto > 0 && (
+            <p className="text-lg font-semibold text-green-600 mb-4">
+              Vuelto: S/ {resultado.vuelto.toFixed(2)}
+            </p>
+          )}
+          <div className="flex gap-3">
+            <button onClick={() => setResultado(null)}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg transition cursor-pointer">
+              Nueva Venta
+            </button>
+            <button onClick={() => window.print()}
+              className="flex items-center justify-center gap-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition cursor-pointer">
+              <Printer size={18} /> Imprimir
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar />
+      <div className="flex-1 flex flex-col">
+        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
+          <HeaderToggle />
+          <h1 className="text-xl font-bold text-gray-800">Punto de Venta</h1>
+        </header>
+
+        <div className="flex-1 flex flex-col lg:flex-row">
+          <div className="flex-1 p-4 lg:p-6 overflow-y-auto">
+            <div className="flex gap-2 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Buscar producto por nombre, marca o categoría..."
+                />
+              </div>
+              <select
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todas</option>
+                {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+
+            {searching ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              </div>
+            ) : productos.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Package className="mx-auto mb-2 w-12 h-12" />
+                <p>Busca productos para agregar al carrito</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {productos.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => addToCart(p)}
+                    disabled={p.stock === 0}
+                    className="bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md hover:border-blue-300 disabled:opacity-50 transition cursor-pointer"
+                  >
+                    <p className="font-semibold text-gray-800 truncate">{p.nombre}</p>
+                    <p className="text-sm text-gray-500 truncate">{p.marca}</p>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-lg font-bold text-blue-600">S/ {Number(p.precio).toFixed(2)}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${p.stock <= 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                        Stock: {p.stock}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                <ShoppingCart size={18} /> Carrito ({carrito.length})
+              </h2>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {carrito.length === 0 ? (
+                <p className="text-center text-gray-400 py-8">Carrito vacío</p>
+              ) : (
+                carrito.map((item) => (
+                  <div key={item.productoId} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800 text-sm truncate">{item.nombre}</p>
+                      <p className="text-xs text-gray-500">S/ {item.precio.toFixed(2)}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => updateCantidad(item.productoId, -1)}
+                        className="p-1 hover:bg-gray-200 rounded cursor-pointer">
+                        <Minus size={14} />
+                      </button>
+                      <span className="w-8 text-center font-medium">{item.cantidad}</span>
+                      <button onClick={() => updateCantidad(item.productoId, 1)}
+                        className="p-1 hover:bg-gray-200 rounded cursor-pointer">
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                    <button onClick={() => removeFromCart(item.productoId)}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded cursor-pointer">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-200 space-y-3">
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between text-gray-500">
+                  <span>Subtotal</span>
+                  <span>S/ {subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-500">
+                  <span>IGV (18%)</span>
+                  <span>S/ {igv.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold text-gray-800">
+                  <span>Total</span>
+                  <span>S/ {total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <select
+                value={metodoPago}
+                onChange={(e) => setMetodoPago(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none"
+              >
+                <option value="EFECTIVO">Efectivo</option>
+                <option value="YAPE">Yape</option>
+                <option value="PLIN">Plin</option>
+                <option value="TARJETA">Tarjeta</option>
+                <option value="CHEQUE">Cheque</option>
+                <option value="TRANSFERENCIA">Transferencia</option>
+              </select>
+
+              {metodoPago === 'EFECTIVO' && (
+                <input
+                  type="number"
+                  step="0.01"
+                  value={montoRecibido}
+                  onChange={(e) => setMontoRecibido(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none"
+                  placeholder="Monto recibido..."
+                />
+              )}
+
+              {metodoPago === 'EFECTIVO' && recibido >= total && (
+                <div className="text-sm text-green-600 font-medium text-center">
+                  Vuelto: S/ {vuelto.toFixed(2)}
+                </div>
+              )}
+
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  type="number"
+                  value={clienteId}
+                  onChange={(e) => setClienteId(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg outline-none text-sm"
+                  placeholder="ID Cliente (opcional)"
+                />
+              </div>
+
+              <button
+                onClick={handleSubmit}
+                disabled={carrito.length === 0 || submitting || (metodoPago === 'EFECTIVO' && recibido < total)}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium py-3 rounded-lg transition cursor-pointer"
+              >
+                {submitting ? 'Procesando...' : `Cobrar S/ ${total.toFixed(2)}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Package(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+    </svg>
+  )
+}
