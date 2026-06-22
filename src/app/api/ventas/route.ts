@@ -10,6 +10,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') || ''
   const categoria = searchParams.get('categoria')
+  const limitStr = searchParams.get('limit')
+  const limit = limitStr ? parseInt(limitStr) : 50
 
   try {
     const where: Record<string, unknown> = { activo: true, stock: { gt: 0 } }
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
         categoria: { select: { id: true, nombre: true } },
       },
       orderBy: { nombre: 'asc' },
-      take: 20,
+      take: limit,
     })
 
     return NextResponse.json(productos)

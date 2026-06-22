@@ -26,6 +26,7 @@ export default function POSPage() {
   const { user } = useAuth()
   const [q, setQ] = useState('')
   const [categoria, setCategoria] = useState('')
+  const [limite, setLimite] = useState('50')
   const [productos, setProductos] = useState<Producto[]>([])
   const [carrito, setCarrito] = useState<CarritoItem[]>([])
   const [metodoPago, setMetodoPago] = useState('EFECTIVO')
@@ -60,12 +61,13 @@ export default function POSPage() {
     fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => {})
   }, [])
 
-  const search = useCallback(async (query: string, cat: string) => {
+  const search = useCallback(async (query: string, cat: string, limit: string) => {
     setSearching(true)
     try {
       const params = new URLSearchParams()
       if (query.trim()) params.set('q', query)
       if (cat) params.set('categoria', cat)
+      if (limit) params.set('limit', limit)
       const res = await fetch(`/api/ventas?${params}`)
       if (res.ok) setProductos(await res.json())
     } catch {
@@ -76,9 +78,9 @@ export default function POSPage() {
   }, [])
 
   useEffect(() => {
-    const t = setTimeout(() => search(q, categoria), 300)
+    const t = setTimeout(() => search(q, categoria, limite), 300)
     return () => clearTimeout(t)
-  }, [q, categoria, search])
+  }, [q, categoria, limite, search])
 
   const addToCart = (p: Producto) => {
     setCarrito((prev) => {
@@ -194,7 +196,7 @@ export default function POSPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen overflow-hidden bg-gray-50 flex">
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
@@ -221,6 +223,16 @@ export default function POSPage() {
               >
                 <option value="">Todas</option>
                 {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+              <select
+                value={limite}
+                onChange={(e) => setLimite(e.target.value)}
+                className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="400">400</option>
               </select>
             </div>
 
