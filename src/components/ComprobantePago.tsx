@@ -207,7 +207,6 @@ export default function ComprobantePago({ venta, empresa, onVolver, onNuevaVenta
 
           <div className="text-center text-[9px] text-gray-500 border-t border-gray-400 pt-2">
             <p>Documento interno generado por el sistema.</p>
-            <p>No válido como comprobante de pago.</p>
             <p className="mt-1">Gracias por su compra. Conserve este documento.</p>
           </div>
         </div>
