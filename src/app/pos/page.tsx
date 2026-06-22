@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
-import { Search, Plus, Minus, Trash2, ShoppingCart, Printer, X, User } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, Printer, X, User, FileText } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
 interface Producto {
@@ -22,6 +22,30 @@ interface CarritoItem {
   cantidad: number
 }
 
+interface DetalleVenta {
+  id: number
+  cantidad: number
+  precioUnitario: number
+  subtotal: number
+  producto: { nombre: string; marca: string }
+}
+
+interface VentaData {
+  id: number
+  numero: string
+  subtotal: number
+  igv: number
+  total: number
+  metodoPago: string
+  montoRecibido: number
+  vuelto: number
+  estado: string
+  creadoEn: string
+  usuario: { id: number; nombre: string }
+  cliente: { id: number; dni: string; nombre: string } | null
+  detalles: DetalleVenta[]
+}
+
 export default function POSPage() {
   const { user } = useAuth()
   const [q, setQ] = useState('')
@@ -34,9 +58,11 @@ export default function POSPage() {
   const [clienteId, setClienteId] = useState('')
   const [searching, setSearching] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [resultado, setResultado] = useState<{ numero: string; vuelto: number } | null>(null)
+  const [resultado, setResultado] = useState<VentaData | null>(null)
+  const [showReceipt, setShowReceipt] = useState(false)
   const [qrModal, setQrModal] = useState<{ url: string; ventaId: number; total: number } | null>(null)
   const [categorias, setCategorias] = useState<Array<{ id: number; nombre: string }>>([])
+  const receiptRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!qrModal) return
@@ -47,7 +73,13 @@ export default function POSPage() {
           const data = await res.json()
           if (data.estado === 'COMPLETADA') {
             setQrModal(null)
-            setResultado({ numero: data.numero, vuelto: 0 })
+            const fullRes = await fetch(`/api/ventas/${data.id}`)
+            if (fullRes.ok) {
+              const fullData = await fullRes.json()
+              setResultado(fullData)
+            } else {
+              setResultado({ id: data.id, numero: data.numero, vuelto: 0, total: 0, subtotal: 0, igv: 0, metodoPago: '', montoRecibido: 0, estado: 'COMPLETADA', creadoEn: '', usuario: { id: 0, nombre: '' }, cliente: null, detalles: [] })
+            }
             setCarrito([])
             setMontoRecibido('')
           }
@@ -134,7 +166,7 @@ export default function POSPage() {
         return
       }
 
-      setResultado({ numero: data.numero, vuelto: Number(data.vuelto) })
+      setResultado(data as VentaData)
       setCarrito([])
       setMontoRecibido('')
     } catch (err) {
@@ -166,6 +198,118 @@ export default function POSPage() {
     )
   }
 
+  const formatFecha = (fecha: string) => {
+    const d = new Date(fecha)
+    return d.toLocaleDateString('es-PE', { year: 'numeric', month: '2-digit', day: '2-digit' }) +
+      ' ' + d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const metodoPagoLabel: Record<string, string> = {
+    EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin',
+    TARJETA: 'Tarjeta', CHEQUE: 'Cheque', TRANSFERENCIA: 'Transferencia',
+  }
+
+  if (showReceipt && resultado) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <div className="max-w-2xl mx-auto p-4">
+          <div className="flex justify-end gap-2 mb-4 no-print">
+            <button onClick={() => window.print()}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition cursor-pointer">
+              <Printer size={18} /> Imprimir
+            </button>
+            <button onClick={() => setShowReceipt(false)}
+              className="flex items-center gap-2 border border-gray-300 bg-white px-4 py-2 rounded-lg hover:bg-gray-50 transition cursor-pointer">
+              Volver
+            </button>
+          </div>
+
+          <div id="receipt-print-area" ref={receiptRef} className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 print:shadow-none print:rounded-none">
+            <div className="text-center border-b border-gray-300 pb-4 mb-4">
+              <h1 className="text-xl font-bold text-gray-800">MINIMARKET</h1>
+              <p className="text-sm text-gray-500">Sistema de Ventas</p>
+              {resultado.usuario?.nombre && (
+                <p className="text-xs text-gray-400 mt-1">Atendido por: {resultado.usuario.nombre}</p>
+              )}
+            </div>
+
+            <div className="flex justify-between text-sm text-gray-600 mb-4">
+              <span className="font-bold text-gray-800">COMPROBANTE DE PAGO</span>
+              <span>{formatFecha(resultado.creadoEn)}</span>
+            </div>
+
+            <div className="text-sm text-gray-700 mb-4 space-y-0.5">
+              <p><span className="font-semibold">N° Venta:</span> {resultado.numero}</p>
+              {resultado.cliente && (
+                <p>
+                  <span className="font-semibold">Cliente:</span> {resultado.cliente.nombre}
+                  {resultado.cliente.dni ? ` (DNI: ${resultado.cliente.dni})` : ''}
+                </p>
+              )}
+              <p><span className="font-semibold">Método de pago:</span> {metodoPagoLabel[resultado.metodoPago] || resultado.metodoPago}</p>
+            </div>
+
+            <table className="w-full text-sm mb-4">
+              <thead>
+                <tr className="border-b border-gray-300">
+                  <th className="text-left py-2 font-semibold text-gray-700">Producto</th>
+                  <th className="text-center py-2 font-semibold text-gray-700">Cant.</th>
+                  <th className="text-right py-2 font-semibold text-gray-700">Precio</th>
+                  <th className="text-right py-2 font-semibold text-gray-700">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resultado.detalles.map((d) => (
+                  <tr key={d.id} className="border-b border-gray-200">
+                    <td className="py-2 text-gray-800">
+                      <span className="font-medium">{d.producto.nombre}</span>
+                      <span className="text-gray-400 ml-1 text-xs">{d.producto.marca}</span>
+                    </td>
+                    <td className="py-2 text-center text-gray-700">{d.cantidad}</td>
+                    <td className="py-2 text-right text-gray-700">S/ {Number(d.precioUnitario).toFixed(2)}</td>
+                    <td className="py-2 text-right text-gray-800 font-medium">S/ {Number(d.subtotal).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="border-t border-gray-300 pt-3 space-y-1 text-sm">
+              <div className="flex justify-between text-gray-600">
+                <span>Subtotal</span>
+                <span>S/ {Number(resultado.subtotal).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>IGV (18%)</span>
+                <span>S/ {Number(resultado.igv).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-base font-bold text-gray-800 pt-1 border-t border-gray-200">
+                <span>Total</span>
+                <span>S/ {Number(resultado.total).toFixed(2)}</span>
+              </div>
+              {resultado.metodoPago === 'EFECTIVO' && resultado.montoRecibido > 0 && (
+                <>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Recibido</span>
+                    <span>S/ {Number(resultado.montoRecibido).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-green-600 font-semibold">
+                    <span>Vuelto</span>
+                    <span>S/ {Number(resultado.vuelto).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="text-center text-xs text-gray-400 mt-6 pt-4 border-t border-gray-200">
+              <p>Gracias por su compra</p>
+              <p className="mt-0.5">Genere este comprobante para cualquier reclamo</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (resultado) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -177,17 +321,17 @@ export default function POSPage() {
           <p className="text-gray-500 mb-1">N° {resultado.numero}</p>
           {resultado.vuelto > 0 && (
             <p className="text-lg font-semibold text-green-600 mb-4">
-              Vuelto: S/ {resultado.vuelto.toFixed(2)}
+              Vuelto: S/ {Number(resultado.vuelto).toFixed(2)}
             </p>
           )}
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3">
             <button onClick={() => setResultado(null)}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg transition cursor-pointer">
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg transition cursor-pointer">
               Nueva Venta
             </button>
-            <button onClick={() => window.print()}
-              className="flex items-center justify-center gap-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition cursor-pointer">
-              <Printer size={18} /> Imprimir
+            <button onClick={() => setShowReceipt(true)}
+              className="w-full flex items-center justify-center gap-2 border border-blue-600 text-blue-600 hover:bg-blue-50 py-2.5 rounded-lg transition cursor-pointer">
+              <FileText size={18} /> Ver Comprobante
             </button>
           </div>
         </div>

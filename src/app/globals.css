@@ -39,3 +39,23 @@ body {
   scrollbar-width: thin;
   scrollbar-color: #c4c4c4 #f1f1f1;
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+  #receipt-print-area,
+  #receipt-print-area * {
+    visibility: visible;
+  }
+  #receipt-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
