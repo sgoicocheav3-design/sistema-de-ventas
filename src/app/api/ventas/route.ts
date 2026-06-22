@@ -167,9 +167,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ...venta, qrData, pagoId }, { status: 201 })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Error al procesar la venta'
+  } catch (err: any) {
+    console.error("Venta Error Detail:", err);
+    const message = err?.message || 'Error al procesar la venta'
     const status = message.includes('Stock') || message.includes('Monto') ? 400 : 500
-    return NextResponse.json({ message }, { status })
+    return NextResponse.json({ message: `Error del Servidor: ${message}` }, { status })
   }
 }
