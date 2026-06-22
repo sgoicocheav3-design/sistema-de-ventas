@@ -1,14 +1,24 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
-import AuthLayout              from '../components/AuthLayout';
-import LoginPage               from '../pages/LoginPage';
-import DashboardPage           from '../pages/DashboardPage';
-import UsuariosPage            from '../pages/admin/UsuariosPage';
-import ProveedoresPage         from '../pages/admin/ProveedoresPage';
-import ProductosPage           from '../pages/almacen/ProductosPage';
-import PosPage                 from '../pages/pos/PosPage';
-import HistorialEntradasPage   from '../pages/almacen/HistorialEntradasPage';
-import HistorialBajasPage      from '../pages/almacen/HistorialBajasPage';
+import AuthLayout from '../components/AuthLayout';
+import LoginPage from '../pages/LoginPage';
+import DashboardPage from '../pages/DashboardPage';
+import UsuariosPage from '../pages/admin/UsuariosPage';
+import ProveedoresPage from '../pages/admin/ProveedoresPage';
+import ReporteVentasPage from '../pages/admin/ReporteVentasPage';
+import ProductosPage from '../pages/almacen/ProductosPage';
+import PosPage from '../pages/pos/PosPage';
+import HistorialEntradasPage from '../pages/almacen/HistorialEntradasPage';
+import HistorialBajasPage from '../pages/almacen/HistorialBajasPage';
+import ReposicionPage from '../pages/almacen/ReposicionPage';
+import RecepcionesPage from '../pages/almacen/RecepcionesPage';
+import HistorialSolicitudesPage from '../pages/almacen/HistorialSolicitudesPage';
+import SolicitudesGerenciaPage from '../pages/gerencia/SolicitudesGerenciaPage';
+import GerenteDashboardPage from '../pages/gerencia/GerenteDashboardPage';
+import CierreCajaPage from '../pages/gerencia/CierreCajaPage';
+import AuditoriaPage from '../pages/gerencia/AuditoriaPage';
+import ConfiguracionPage from '../pages/admin/ConfiguracionPage';
+import RecuperarPasswordPage from '../pages/RecuperarPasswordPage';
 
 // ─── Componente de verificación de rol ──────────────────────────────────────
 // Solo comprueba el rol; AuthLayout ya verificó la autenticación.
@@ -54,9 +64,10 @@ export default function AppRouter() {
     <BrowserRouter>
       <Routes>
         {/* ─── Rutas públicas ─────────────────────────────────────────────── */}
-        <Route path="/login"        element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/recuperar-password" element={<RecuperarPasswordPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
-        <Route path="/"             element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
 
         {/* ─── Rutas protegidas (dentro del Layout con sidebar) ───────────── */}
         <Route element={<AuthLayout />}>
@@ -74,13 +85,28 @@ export default function AppRouter() {
           <Route path="/admin/categorias" element={
             <RoleRoute roles={['ADMIN']}><Placeholder titulo="Categorías" /></RoleRoute>
           } />
+          <Route path="/admin/reportes/ventas" element={
+            <RoleRoute roles={['ADMIN']}><ReporteVentasPage /></RoleRoute>
+          } />
+          <Route path="/admin/configuracion" element={
+            <RoleRoute roles={['ADMIN']}><ConfiguracionPage /></RoleRoute>
+          } />
 
           {/* GERENTE */}
           <Route path="/gerente" element={
-            <RoleRoute roles={['GERENTE', 'ADMIN']}><DashboardPage /></RoleRoute>
+            <RoleRoute roles={['GERENTE', 'ADMIN']}><GerenteDashboardPage /></RoleRoute>
           } />
-          <Route path="/gerente/reportes" element={
-            <RoleRoute roles={['GERENTE', 'ADMIN']}><Placeholder titulo="Reportes" /></RoleRoute>
+          <Route path="/gerente/dashboard" element={
+            <RoleRoute roles={['GERENTE', 'ADMIN']}><GerenteDashboardPage /></RoleRoute>
+          } />
+          <Route path="/gerente/cierre-caja" element={
+            <RoleRoute roles={['GERENTE', 'VENDEDOR', 'ADMIN']}><CierreCajaPage /></RoleRoute>
+          } />
+          <Route path="/gerente/auditoria" element={
+            <RoleRoute roles={['GERENTE', 'ADMIN']}><AuditoriaPage /></RoleRoute>
+          } />
+          <Route path="/gerencia/solicitudes" element={
+            <RoleRoute roles={['GERENTE', 'ADMIN']}><SolicitudesGerenciaPage /></RoleRoute>
           } />
 
           {/* VENDEDOR */}
@@ -98,11 +124,23 @@ export default function AppRouter() {
           <Route path="/almacen/entradas" element={
             <RoleRoute roles={['ALMACENERO', 'ADMIN']}><HistorialEntradasPage /></RoleRoute>
           } />
+          <Route path="/almacen/historial-entradas" element={
+            <RoleRoute roles={['ALMACENERO', 'ADMIN']}><HistorialEntradasPage /></RoleRoute>
+          } />
           <Route path="/almacen/bajas" element={
             <RoleRoute roles={['ALMACENERO', 'ADMIN']}><HistorialBajasPage /></RoleRoute>
           } />
-          <Route path="/almacen/solicitudes" element={
-            <RoleRoute roles={['ALMACENERO', 'ADMIN']}><Placeholder titulo="Solicitudes de Reposición" /></RoleRoute>
+          <Route path="/almacen/historial-bajas" element={
+            <RoleRoute roles={['ALMACENERO', 'ADMIN']}><HistorialBajasPage /></RoleRoute>
+          } />
+          <Route path="/almacen/reposicion" element={
+            <RoleRoute roles={['ALMACENERO', 'ADMIN']}><ReposicionPage /></RoleRoute>
+          } />
+          <Route path="/almacen/recepciones" element={
+            <RoleRoute roles={['ALMACENERO', 'ADMIN']}><RecepcionesPage /></RoleRoute>
+          } />
+          <Route path="/almacen/historial-solicitudes" element={
+            <RoleRoute roles={['ALMACENERO', 'ADMIN']}><HistorialSolicitudesPage /></RoleRoute>
           } />
 
           {/* 404 dentro del layout */}

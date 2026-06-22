@@ -88,14 +88,14 @@ export default function HistorialEntradasPage() {
           <table className="w-full text-sm" id="tabla-entradas">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                {['Fecha','Producto','Proveedor','Cantidad','Registrado por'].map((h) => (
-                  <th key={h} className={`px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide ${h === 'Cantidad' ? 'text-right' : 'text-left'}`}>{h}</th>
+                {['Fecha','Producto','Proveedor','Precio Unit.','Cantidad','Registrado por'].map((h) => (
+                  <th key={h} className={`px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide ${['Precio Unit.','Cantidad'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {entradas.length === 0 && (
-                <tr><td colSpan={5} className="text-center text-gray-400 py-12">No hay entradas en el período seleccionado</td></tr>
+                <tr><td colSpan={6} className="text-center text-gray-400 py-12">No hay entradas en el período seleccionado</td></tr>
               )}
               {entradas.map((e) => (
                 <tr key={e.id} id={`entrada-row-${e.id}`} className="hover:bg-gray-50 transition-colors">
@@ -107,6 +107,9 @@ export default function HistorialEntradasPage() {
                     <p className="text-xs text-gray-400">{e.producto.marca}</p>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{e.proveedor.nombre}</td>
+                  <td className="px-4 py-3 text-right text-gray-700 font-medium text-xs">
+                    {e.precioUnitario ? `S/ ${parseFloat(e.precioUnitario).toFixed(2)}` : '—'}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full text-xs">
                       <ArrowDownToLine size={10} /> +{e.cantidad}

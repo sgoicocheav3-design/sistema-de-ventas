@@ -1,6 +1,6 @@
 // src/pages/LoginPage.jsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import api from '../lib/axios';
 
@@ -124,6 +124,17 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {/* Forgot password link */}
+          <div className="text-center mt-4">
+            <Link
+              to="/recuperar-password"
+              id="link-forgot-password"
+              className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">

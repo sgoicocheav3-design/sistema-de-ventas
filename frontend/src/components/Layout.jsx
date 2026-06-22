@@ -1,35 +1,45 @@
 // src/components/Layout.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
+import api, { withAuth } from '../lib/axios';
 import {
   LayoutDashboard, Users, Package, Truck, Tag,
   ShoppingCart, BarChart2, ArrowDownToLine, ClipboardList,
   LogOut, ChevronRight, Menu, X, User, ArrowUpFromLine,
+  RefreshCw, Inbox, History, FileText, Shield, Settings, Database,
 } from 'lucide-react';
 
 // ─── Navegación por rol ─────────────────────────────────────────────────────
 const NAV_BY_ROLE = {
   ADMIN: [
-    { icon: LayoutDashboard, label: 'Dashboard',    to: '/admin' },
-    { icon: Users,           label: 'Usuarios',     to: '/admin/usuarios' },
-    { icon: Truck,           label: 'Proveedores',  to: '/admin/proveedores' },
-    { icon: Package,         label: 'Productos',    to: '/almacen/productos' },
-    { icon: Tag,             label: 'Categorías',   to: '/admin/categorias' },
+    { icon: LayoutDashboard, label: 'Dashboard',       to: '/admin' },
+    { icon: Users,           label: 'Usuarios',        to: '/admin/usuarios' },
+    { icon: Truck,           label: 'Proveedores',     to: '/admin/proveedores' },
+    { icon: Package,         label: 'Productos',       to: '/almacen/productos' },
+    { icon: Tag,             label: 'Categorías',      to: '/admin/categorias' },
+    { icon: FileText,        label: 'Reporte Ventas',  to: '/admin/reportes/ventas' },
+    { icon: Settings,        label: 'Configuración',   to: '/admin/configuracion' },
   ],
   GERENTE: [
-    { icon: LayoutDashboard, label: 'Dashboard',    to: '/gerente' },
-    { icon: BarChart2,       label: 'Reportes',     to: '/gerente/reportes' },
+    { icon: LayoutDashboard, label: 'Dashboard',       to: '/gerente' },
+    { icon: BarChart2,       label: 'Dashboard KPIs',  to: '/gerente/dashboard' },
+    { icon: ClipboardList,   label: 'Solicitudes',     to: '/gerencia/solicitudes' },
+    { icon: Database,        label: 'Cierre de Caja',  to: '/gerente/cierre-caja' },
+    { icon: Shield,          label: 'Auditoría',       to: '/gerente/auditoria' },
   ],
   VENDEDOR: [
     { icon: ShoppingCart,    label: 'Punto de Venta', to: '/pos' },
+    { icon: Database,        label: 'Cierre de Caja', to: '/gerente/cierre-caja' },
   ],
   ALMACENERO: [
-    { icon: LayoutDashboard,  label: 'Dashboard',       to: '/almacen' },
-    { icon: Package,          label: 'Productos',       to: '/almacen/productos' },
-    { icon: ArrowDownToLine,  label: 'Historial Entradas', to: '/almacen/entradas' },
-    { icon: ArrowUpFromLine,  label: 'Historial Bajas',    to: '/almacen/bajas' },
-    { icon: ClipboardList,    label: 'Solicitudes',     to: '/almacen/solicitudes' },
+    { icon: LayoutDashboard,  label: 'Dashboard',           to: '/almacen' },
+    { icon: Package,          label: 'Productos',           to: '/almacen/productos' },
+    { icon: RefreshCw,        label: 'Reposición',          to: '/almacen/reposicion' },
+    { icon: Inbox,            label: 'Recepciones',         to: '/almacen/recepciones', badgeKey: 'recepciones' },
+    { icon: ArrowDownToLine,  label: 'Historial Entradas',  to: '/almacen/entradas' },
+    { icon: ArrowUpFromLine,  label: 'Historial Bajas',     to: '/almacen/bajas' },
+    { icon: History,          label: 'Mis Solicitudes',     to: '/almacen/historial-solicitudes' },
   ],
 };
 
@@ -45,11 +55,28 @@ const SIDEBAR_BG   = '#1e2a38';
 const SIDEBAR_DARK = '#192230';
 
 export default function Layout() {
-  const { usuario, logout } = useAuth();
+  const { usuario, token, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [badges, setBadges] = useState({});
 
   const navItems = NAV_BY_ROLE[usuario?.rol] || [];
+
+  // Fetch badge counts
+  useEffect(() => {
+    if (!token) return;
+    const fetchBadges = async () => {
+      try {
+        if (['ALMACENERO', 'ADMIN'].includes(usuario?.rol)) {
+          const { data } = await api.get('/almacen/recepciones/pendientes/count', withAuth(token));
+          setBadges((prev) => ({ ...prev, recepciones: data.count }));
+        }
+      } catch {}
+    };
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 60000); // refresh every 60s
+    return () => clearInterval(interval);
+  }, [token, usuario?.rol]);
 
   const handleLogout = () => {
     logout();
@@ -112,6 +139,11 @@ export default function Layout() {
                 <>
                   <Icon size={16} className={isActive ? 'text-sky-400' : 'text-white/40'} />
                   <span className="flex-1">{item.label}</span>
+                  {item.badgeKey && badges[item.badgeKey] > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                      {badges[item.badgeKey]}
+                    </span>
+                  )}
                   <ChevronRight
                     size={12}
                     className={isActive ? 'text-sky-400' : 'text-white/20'}

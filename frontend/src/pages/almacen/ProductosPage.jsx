@@ -8,7 +8,7 @@ import { useAuth } from '../../store/AuthContext';
 import api, { withAuth } from '../../lib/axios';
 
 const EMPTY_PROD_FORM = { nombre: '', marca: '', categoriaId: '', precio: '', fechaVencimiento: '' };
-const EMPTY_ENTRADA = { proveedorId: '', cantidad: '' };
+const EMPTY_ENTRADA = { proveedorId: '', cantidad: '', precioUnitario: '' };
 const EMPTY_BAJA    = { motivo: 'Vencido', cantidad: '' };
 const MOTIVOS_BAJA  = ['Vencido', 'Dañado', 'Robo/Pérdida', 'Otro'];
 
@@ -136,7 +136,8 @@ export default function ProductosPage() {
     e.preventDefault(); setSavingEntrada(true); setErrEntrada('');
     try {
       await api.post('/almacen/entradas', {
-        productoId: modalEntrada.id, proveedorId: parseInt(formEntrada.proveedorId), cantidad: parseInt(formEntrada.cantidad),
+        productoId: modalEntrada.id, proveedorId: parseInt(formEntrada.proveedorId),
+        cantidad: parseInt(formEntrada.cantidad), precioUnitario: parseFloat(formEntrada.precioUnitario),
       }, withAuth(token));
       await fetchProductos(); cerrarEntrada();
     } catch (err) { setErrEntrada(err.response?.data?.message || 'Error al registrar entrada'); }
@@ -403,15 +404,23 @@ export default function ProductosPage() {
                   {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre} — {p.ruc}</option>)}
                 </select>
               </div>
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Cantidad a ingresar</label>
-                <input id="entrada-cantidad" type="number" min="1" required value={formEntrada.cantidad}
-                  onChange={(e) => setFormEntrada((p) => ({ ...p, cantidad: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
-                {formEntrada.cantidad && (
-                  <p className="text-xs text-emerald-600">Stock resultante: <strong>{modalEntrada.stockActual + parseInt(formEntrada.cantidad || 0)}</strong> unidades</p>
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Cantidad a ingresar</label>
+                  <input id="entrada-cantidad" type="number" min="1" required value={formEntrada.cantidad}
+                    onChange={(e) => setFormEntrada((p) => ({ ...p, cantidad: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Precio unitario (S/)</label>
+                  <input id="entrada-precio" type="number" step="0.01" min="0.01" required value={formEntrada.precioUnitario}
+                    onChange={(e) => setFormEntrada((p) => ({ ...p, precioUnitario: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+                </div>
               </div>
+              {formEntrada.cantidad && (
+                <p className="text-xs text-emerald-600">Stock resultante: <strong>{modalEntrada.stockActual + parseInt(formEntrada.cantidad || 0)}</strong> unidades</p>
+              )}
               {errEntrada && <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2.5 text-sm">⚠️ {errEntrada}</div>}
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={cerrarEntrada} className="flex-1 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm">Cancelar</button>

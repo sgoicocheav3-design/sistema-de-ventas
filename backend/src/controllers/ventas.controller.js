@@ -56,7 +56,7 @@ const buscarProductos = async (req, res, next) => {
  */
 const crearVenta = async (req, res, next) => {
   try {
-    const { items, metodoPago, montoRecibido } = req.body;
+    const { items, metodoPago, montoRecibido, clienteId } = req.body;
 
     // Validaciones
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -126,6 +126,7 @@ const crearVenta = async (req, res, next) => {
         data: {
           numero,
           usuarioId:      req.user.id,
+          clienteId:      clienteId ? parseInt(clienteId) : null,
           subtotal:       subtotal,
           igv:            igv,
           total:          total,
@@ -146,6 +147,7 @@ const crearVenta = async (req, res, next) => {
         include: { producto: { select: { nombre: true, marca: true } } },
       },
       usuario: { select: { id: true, nombre: true } },
+      cliente: { select: { id: true, dni: true, nombre: true } },
     },
       });
 
