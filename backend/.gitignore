@@ -14,7 +14,6 @@ build/
 
 # Prisma generated
 src/prisma/migrations/
-generated/
 
 # Logs
 *.log
@@ -29,6 +28,3 @@ Thumbs.db
 .idea/
 *.swp
 
-/src/generated/prisma
-
-/src/generated/prisma
