@@ -121,6 +121,8 @@ model Venta {
   montoRecibido  Decimal   @default(0) @db.Decimal(12, 2)
   vuelto         Decimal   @default(0) @db.Decimal(12, 2)
   estado         String    @default("COMPLETADA") @db.VarChar(50)
+  pagoId         String?   @unique @db.VarChar(100)
+  qrData         String?   @db.Text
   creadoEn       DateTime  @default(now())
 
   detalles       DetalleVenta[]

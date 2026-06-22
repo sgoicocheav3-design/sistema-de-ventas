@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
 import { Search, Plus, Minus, Trash2, ShoppingCart, Printer, X, User } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 
 interface Producto {
   id: number
@@ -33,7 +34,27 @@ export default function POSPage() {
   const [searching, setSearching] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [resultado, setResultado] = useState<{ numero: string; vuelto: number } | null>(null)
+  const [qrModal, setQrModal] = useState<{ url: string; ventaId: number; total: number } | null>(null)
   const [categorias, setCategorias] = useState<Array<{ id: number; nombre: string }>>([])
+
+  useEffect(() => {
+    if (!qrModal) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/ventas/${qrModal.ventaId}/status`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.estado === 'COMPLETADA') {
+            setQrModal(null)
+            setResultado({ numero: data.numero, vuelto: 0 })
+            setCarrito([])
+            setMontoRecibido('')
+          }
+        }
+      } catch (e) {}
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [qrModal])
 
   useEffect(() => {
     fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => {})
@@ -105,6 +126,12 @@ export default function POSPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Error al procesar venta')
 
+      if (data.qrData) {
+        setQrModal({ url: data.qrData, ventaId: data.id, total: Number(data.total) })
+        setSubmitting(false)
+        return
+      }
+
       setResultado({ numero: data.numero, vuelto: Number(data.vuelto) })
       setCarrito([])
       setMontoRecibido('')
@@ -113,6 +140,28 @@ export default function POSPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (qrModal) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Escanea para Pagar</h2>
+          <p className="text-gray-500 mb-6">Total: S/ {qrModal.total.toFixed(2)}</p>
+          <div className="flex justify-center mb-6">
+            <QRCodeSVG value={qrModal.url} size={200} />
+          </div>
+          <div className="flex items-center justify-center gap-2 text-blue-600 mb-6">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <span className="font-medium">Esperando pago...</span>
+          </div>
+          <button onClick={() => setQrModal(null)}
+            className="w-full px-4 border border-gray-300 rounded-lg py-2.5 text-gray-600 hover:bg-gray-50 transition cursor-pointer">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (resultado) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
+import { MercadoPagoConfig, Preference } from 'mercadopago'
 
 export async function GET(req: NextRequest) {
   const auth = withAuth(req)
@@ -53,6 +54,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Método de pago inválido' }, { status: 400 })
     }
 
+    const isMP = ['YAPE', 'PLIN', 'TARJETA'].includes(metodoPago)
+
     const venta = await prisma.$transaction(async (tx) => {
       let subtotal = 0
       const lineas: Array<{ productoId: number; cantidad: number; precioUnitario: number }> = []
@@ -81,7 +84,7 @@ export async function POST(req: NextRequest) {
         throw new Error(`Monto recibido insuficiente. Total: S/ ${total.toFixed(2)}, recibido: S/ ${recibido.toFixed(2)}`)
       }
 
-      const montoRecibidoFinal = metodoPago === 'EFECTIVO' ? recibido : total
+      const montoRecibidoFinal = isMP ? total : (metodoPago === 'EFECTIVO' ? recibido : total)
       const vuelto = metodoPago === 'EFECTIVO' ? recibido - total : 0
 
       const ventasHoy = await tx.venta.count({
@@ -101,6 +104,7 @@ export async function POST(req: NextRequest) {
           metodoPago,
           montoRecibido: montoRecibidoFinal,
           vuelto,
+          estado: isMP ? 'PENDIENTE' : 'COMPLETADA',
           detalles: {
             create: lineas.map((l) => ({
               productoId: l.productoId,
@@ -127,7 +131,42 @@ export async function POST(req: NextRequest) {
       return nuevaVenta
     })
 
-    return NextResponse.json(venta, { status: 201 })
+    let qrData = null;
+    let pagoId = null;
+
+    if (isMP) {
+      const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '' });
+      const preference = new Preference(client);
+      
+      const protocol = req.headers.get('x-forwarded-proto') || 'http';
+      const host = req.headers.get('host');
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+      
+      const pref = await preference.create({
+        body: {
+          items: [
+            {
+              id: venta.numero,
+              title: `Venta ${venta.numero}`,
+              quantity: 1,
+              unit_price: Number(venta.total)
+            }
+          ],
+          external_reference: venta.id.toString(),
+          notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+        }
+      });
+      
+      qrData = pref.init_point;
+      pagoId = pref.id;
+
+      await prisma.venta.update({
+        where: { id: venta.id },
+        data: { pagoId, qrData }
+      });
+    }
+
+    return NextResponse.json({ ...venta, qrData, pagoId }, { status: 201 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error al procesar la venta'
     const status = message.includes('Stock') || message.includes('Monto') ? 400 : 500
