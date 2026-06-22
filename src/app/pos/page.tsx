@@ -62,33 +62,93 @@ export default function POSPage() {
   const [resultado, setResultado] = useState<VentaData | null>(null)
   const [showReceipt, setShowReceipt] = useState(false)
   const [qrModal, setQrModal] = useState<{ url: string; ventaId: number; total: number } | null>(null)
+  const [qrEstado, setQrEstado] = useState<string>('PENDIENTE')
+  const [qrStatusDetail, setQrStatusDetail] = useState<string | null>(null)
+  const [qrError, setQrError] = useState<string | null>(null)
   const [categorias, setCategorias] = useState<Array<{ id: number; nombre: string }>>([])
   const receiptRef = useRef<HTMLDivElement>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const mountedRef = useRef(true)
+
+  const fetchStatus = useCallback(async (ventaId: number) => {
+    if (!mountedRef.current) return
+    try {
+      const res = await fetch(`/api/ventas/${ventaId}/status`, { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      if (!mountedRef.current) return
+
+      setQrEstado(data.estado)
+      setQrStatusDetail(data.statusDetail || null)
+      setQrError(null)
+
+      if (data.estado === 'COMPLETADA') {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
+        }
+        const fullRes = await fetch(`/api/ventas/${ventaId}`)
+        if (fullRes.ok) {
+          const fullData = await fullRes.json()
+          setResultado(fullData)
+        } else {
+          setResultado({ id: data.id, numero: data.numero, vuelto: 0, total: 0, subtotal: 0, igv: 0, metodoPago: '', montoRecibido: 0, estado: 'COMPLETADA', creadoEn: '', usuario: { id: 0, nombre: '' }, cliente: null, detalles: [] })
+        }
+        setQrModal(null)
+        setCarrito([])
+        setMontoRecibido('')
+      } else if (data.estado === 'RECHAZADO' || data.estado === 'CANCELADO') {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
+        }
+      }
+    } catch {
+      if (mountedRef.current) {
+        setQrError('Error al verificar pago')
+      }
+    }
+  }, [])
 
   useEffect(() => {
-    if (!qrModal) return
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/ventas/${qrModal.ventaId}/status`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data.estado === 'COMPLETADA') {
-            setQrModal(null)
-            const fullRes = await fetch(`/api/ventas/${data.id}`)
-            if (fullRes.ok) {
-              const fullData = await fullRes.json()
-              setResultado(fullData)
-            } else {
-              setResultado({ id: data.id, numero: data.numero, vuelto: 0, total: 0, subtotal: 0, igv: 0, metodoPago: '', montoRecibido: 0, estado: 'COMPLETADA', creadoEn: '', usuario: { id: 0, nombre: '' }, cliente: null, detalles: [] })
-            }
-            setCarrito([])
-            setMontoRecibido('')
-          }
-        }
-      } catch (e) {}
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [qrModal])
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
+  useEffect(() => {
+    if (!qrModal) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      setQrEstado('PENDIENTE')
+      setQrStatusDetail(null)
+      setQrError(null)
+      return
+    }
+
+    setQrEstado('PENDIENTE')
+    setQrStatusDetail(null)
+    setQrError(null)
+
+    fetchStatus(qrModal.ventaId)
+    intervalRef.current = setInterval(() => fetchStatus(qrModal.ventaId), 3000)
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && qrModal) {
+        fetchStatus(qrModal.ventaId)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [qrModal, fetchStatus])
 
   useEffect(() => {
     fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => {})
@@ -178,22 +238,82 @@ export default function POSPage() {
   }
 
   if (qrModal) {
+    const estadoFinal = qrEstado === 'COMPLETADA' || qrEstado === 'RECHAZADO' || qrEstado === 'CANCELADO'
+
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Escanea para Pagar</h2>
           <p className="text-gray-500 mb-6">Total: S/ {qrModal.total.toFixed(2)}</p>
-          <div className="flex justify-center mb-6">
-            <QRCodeSVG value={qrModal.url} size={200} />
-          </div>
-          <div className="flex items-center justify-center gap-2 text-blue-600 mb-6">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-            <span className="font-medium">Esperando pago...</span>
-          </div>
-          <button onClick={() => setQrModal(null)}
-            className="w-full px-4 border border-gray-300 rounded-lg py-2.5 text-gray-600 hover:bg-gray-50 transition cursor-pointer">
-            Cancelar
-          </button>
+          {!estadoFinal && (
+            <div className="flex justify-center mb-6">
+              <QRCodeSVG value={qrModal.url} size={200} />
+            </div>
+          )}
+
+          {qrEstado === 'PENDIENTE' && (
+            <div className="flex items-center justify-center gap-2 text-blue-600 mb-6">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              <span className="font-medium">Esperando pago...</span>
+            </div>
+          )}
+          {qrEstado === 'PROCESANDO' && (
+            <div className="flex items-center justify-center gap-2 text-yellow-600 mb-6">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600"></div>
+              <span className="font-medium">Estamos confirmando tu pago...</span>
+            </div>
+          )}
+          {qrEstado === 'COMPLETADA' && (
+            <div className="text-green-600 mb-6">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <ShoppingCart className="text-green-600" size={24} />
+              </div>
+              <p className="text-lg font-bold">Pago aprobado</p>
+              <p className="text-sm text-gray-500">Tu compra se registró correctamente.</p>
+            </div>
+          )}
+          {qrEstado === 'RECHAZADO' && (
+            <div className="text-red-600 mb-6">
+              <p className="text-lg font-bold">El pago fue rechazado</p>
+              <p className="text-sm text-gray-500">Puedes intentarlo nuevamente.</p>
+            </div>
+          )}
+          {qrEstado === 'CANCELADO' && (
+            <div className="text-gray-600 mb-6">
+              <p className="text-lg font-bold">El pago fue cancelado</p>
+            </div>
+          )}
+          {qrError && !estadoFinal && (
+            <div className="text-gray-500 mb-4">
+              <p className="text-sm">{qrError}</p>
+            </div>
+          )}
+
+          {!estadoFinal && (
+            <div className="flex flex-col gap-2">
+              <button onClick={() => fetchStatus(qrModal.ventaId)}
+                className="w-full px-4 border border-blue-600 text-blue-600 rounded-lg py-2.5 hover:bg-blue-50 transition cursor-pointer">
+                Verificar pago
+              </button>
+              <button onClick={() => setQrModal(null)}
+                className="w-full px-4 border border-gray-300 rounded-lg py-2.5 text-gray-600 hover:bg-gray-50 transition cursor-pointer">
+                Cancelar
+              </button>
+            </div>
+          )}
+
+          {qrEstado === 'RECHAZADO' && (
+            <button onClick={() => setQrModal(null)}
+              className="w-full px-4 bg-blue-600 text-white rounded-lg py-2.5 hover:bg-blue-700 transition cursor-pointer">
+              Intentar nuevamente
+            </button>
+          )}
+          {qrEstado === 'CANCELADO' && (
+            <button onClick={() => setQrModal(null)}
+              className="w-full px-4 bg-blue-600 text-white rounded-lg py-2.5 hover:bg-blue-700 transition cursor-pointer">
+              Volver
+            </button>
+          )}
         </div>
       </div>
     )

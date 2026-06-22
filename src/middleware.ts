@@ -6,7 +6,11 @@ const publicRoutes = ['/login', '/recuperar-password']
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  if (publicRoutes.includes(pathname) || pathname.startsWith('/api/auth/')) {
+  if (
+    publicRoutes.includes(pathname) ||
+    pathname.startsWith('/api/auth/') ||
+    pathname.startsWith('/api/webhooks/')
+  ) {
     return NextResponse.next()
   }
 
