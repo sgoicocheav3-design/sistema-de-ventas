@@ -56,3 +56,61 @@ export function calcularTotalesConIgvIncluido(
     total: totalRedondeado,
   }
 }
+
+const UNIDADES = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE']
+const DECENAS = ['', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA']
+const DIEZ_DIECISEIS = ['DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISÉIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE']
+const CENTENAS = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS']
+
+function convertirGrupo(n: number): string {
+  if (n === 0) return ''
+  if (n === 100) return 'CIEN'
+
+  let result = ''
+  const c = Math.floor(n / 100)
+  const d = Math.floor((n % 100) / 10)
+  const u = n % 10
+
+  if (c > 0) result += CENTENAS[c] + ' '
+  if (d === 1 && u > 0) {
+    result += DIEZ_DIECISEIS[u] + ' '
+    return result.trim()
+  }
+  if (d > 0) result += DECENAS[d] + (d > 2 && u > 0 ? ' Y ' : ' ')
+  if (u > 0 && !(d === 1)) result += UNIDADES[u] + ' '
+  return result.trim()
+}
+
+export function numeroALetras(monto: number): string {
+  if (monto === 0) return 'CERO SOLES CON 00/100'
+
+  const entero = Math.floor(monto)
+  const decimales = Math.round((monto - entero) * 100)
+  const decStr = String(decimales).padStart(2, '0')
+
+  if (entero === 0) return `CERO SOLES CON ${decStr}/100`
+
+  const millones = Math.floor(entero / 1000000)
+  const miles = Math.floor((entero % 1000000) / 1000)
+  const resto = entero % 1000
+
+  let partes: string[] = []
+
+  if (millones > 0) {
+    if (millones === 1) partes.push('UN MILLÓN')
+    else partes.push(convertirGrupo(millones) + ' MILLONES')
+  }
+  if (miles > 0) {
+    if (miles === 1) partes.push('MIL')
+    else partes.push(convertirGrupo(miles) + ' MIL')
+  }
+  if (resto > 0) {
+    partes.push(convertirGrupo(resto))
+  }
+
+  const palabra = partes.join(' ')
+  if (entero === 1) {
+    return `${palabra} SOL CON ${decStr}/100`
+  }
+  return `${palabra} SOLES CON ${decStr}/100`
+}

@@ -41,6 +41,9 @@ body {
 }
 
 @media print {
+  @page {
+    margin: 0;
+  }
   body * {
     visibility: hidden;
   }
@@ -49,13 +52,33 @@ body {
     display: none !important;
   }
   #receipt-print-area,
-  #receipt-print-area * {
+  #receipt-print-area *,
+  #comprobante-pago,
+  #comprobante-pago * {
     visibility: visible;
   }
-  #receipt-print-area {
+  #receipt-print-area,
+  #comprobante-pago {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
+    padding: 10px;
+  }
+}
+
+@media print and (min-width: 500px) {
+  #comprobante-pago {
+    max-width: 210mm;
+    margin: 0 auto;
+    font-size: 11pt;
+  }
+}
+
+@media print and (max-width: 499px) {
+  #comprobante-pago {
+    max-width: 80mm;
+    margin: 0 auto;
+    font-size: 9pt;
   }
 }
