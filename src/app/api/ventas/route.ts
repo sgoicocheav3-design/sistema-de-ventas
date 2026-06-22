@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
 import { MercadoPagoConfig, Preference } from 'mercadopago'
+import { calcularTotalesConIgvIncluido } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
   const auth = withAuth(req)
@@ -59,7 +60,6 @@ export async function POST(req: NextRequest) {
     const isMP = ['YAPE', 'PLIN', 'TARJETA'].includes(metodoPago)
 
     const venta = await prisma.$transaction(async (tx) => {
-      let subtotal = 0
       const lineas: Array<{ productoId: number; cantidad: number; precioUnitario: number }> = []
 
       for (const item of items) {
@@ -74,12 +74,14 @@ export async function POST(req: NextRequest) {
           throw new Error(`Stock insuficiente para "${producto.nombre}". Disponible: ${producto.stock}`)
         }
         const precioUnit = Number(producto.precio)
-        subtotal += precioUnit * item.cantidad
         lineas.push({ productoId: item.productoId, cantidad: item.cantidad, precioUnitario: precioUnit })
       }
 
-      const igv = Math.round(subtotal * 0.18 * 100) / 100
-      const total = Math.round((subtotal + igv) * 100) / 100
+      const { total, subtotalSinIgv, igvIncluido } = calcularTotalesConIgvIncluido(
+        lineas.map((l) => ({ precio: l.precioUnitario, cantidad: l.cantidad }))
+      )
+      const subtotal = subtotalSinIgv
+      const igv = igvIncluido
       const recibido = Number(montoRecibido || 0)
 
       if (metodoPago === 'EFECTIVO' && recibido < total) {

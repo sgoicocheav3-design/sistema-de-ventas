@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/AuthContext'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
 import { Search, Plus, Minus, Trash2, ShoppingCart, Printer, X, User, FileText } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
+import { calcularTotalesConIgvIncluido, fmtCurrency } from '@/lib/utils'
 
 interface Producto {
   id: number
@@ -137,9 +138,9 @@ export default function POSPage() {
     setCarrito((prev) => prev.filter((i) => i.productoId !== id))
   }
 
-  const subtotal = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
-  const igv = subtotal * 0.18
-  const total = subtotal + igv
+  const { total, subtotalSinIgv, igvIncluido } = calcularTotalesConIgvIncluido(
+    carrito.map((i) => ({ precio: i.precio, cantidad: i.cantidad }))
+  )
   const recibido = parseFloat(montoRecibido) || 0
   const vuelto = metodoPago === 'EFECTIVO' ? Math.max(0, recibido - total) : 0
 
@@ -275,11 +276,11 @@ export default function POSPage() {
 
             <div className="border-t border-gray-300 pt-3 space-y-1 text-sm">
               <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
+                <span>Subtotal sin IGV</span>
                 <span>S/ {Number(resultado.subtotal).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-gray-600">
-                <span>IGV (18%)</span>
+                <span>IGV incluido (18%)</span>
                 <span>S/ {Number(resultado.igv).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-base font-bold text-gray-800 pt-1 border-t border-gray-200">
@@ -452,12 +453,12 @@ export default function POSPage() {
             <div className="p-4 border-t border-gray-200 space-y-3">
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between text-gray-500">
-                  <span>Subtotal</span>
-                  <span>S/ {subtotal.toFixed(2)}</span>
+                  <span>Subtotal sin IGV</span>
+                  <span>S/ {subtotalSinIgv.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-500">
-                  <span>IGV (18%)</span>
-                  <span>S/ {igv.toFixed(2)}</span>
+                  <span>IGV incluido (18%)</span>
+                  <span>S/ {igvIncluido.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold text-gray-800">
                   <span>Total</span>

@@ -14,9 +14,9 @@ function daysAgo(n: number, hour = 10, minute = 0): Date {
 }
 
 function calcVenta(lineas: Array<{ precioUnitario: number; cantidad: number }>) {
-  const subtotal = lineas.reduce((s, l) => s + l.precioUnitario * l.cantidad, 0)
-  const igv = Math.round(subtotal * 0.18 * 100) / 100
-  const total = Math.round((subtotal + igv) * 100) / 100
+  const total = lineas.reduce((s, l) => s + l.precioUnitario * l.cantidad, 0)
+  const subtotal = Math.round((total / 1.18) * 100) / 100
+  const igv = Math.round((total - subtotal) * 100) / 100
   return { subtotal, igv, total }
 }
 
