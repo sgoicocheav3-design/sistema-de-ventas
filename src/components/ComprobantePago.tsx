@@ -47,9 +47,9 @@ export default function ComprobantePago({ venta, empresa, onVolver, onNuevaVenta
   const [generating, setGenerating] = useState(false)
 
   const nombreComercial = empresa.nombre_comercial || 'MINIMARKET'
-  const razonSocial = empresa.razon_social || 'Dato no configurado'
-  const ruc = empresa.ruc || 'Dato no configurado'
-  const direccionFiscal = empresa.direccion_fiscal || 'Dato no configurado'
+  const razonSocial = empresa.razon_social || 'MINIMARKET AGILE S.A.C.'
+  const ruc = empresa.ruc || '20123456789'
+  const direccionFiscal = empresa.direccion_fiscal || 'Av. América Norte N.° 1234, Trujillo, La Libertad'
   const direccionEst = empresa.direccion_establecimiento || direccionFiscal
   const telefono = empresa.telefono || ''
   const correo = empresa.correo || ''
@@ -121,8 +121,6 @@ export default function ComprobantePago({ venta, empresa, onVolver, onNuevaVenta
 
           <div className="text-center mb-3">
             <p className="text-sm font-bold">CONSTANCIA DE COMPRA</p>
-            <p className="text-[10px] font-bold text-red-600 mt-0.5">DOCUMENTO INTERNO</p>
-            <p className="text-[10px] font-bold text-red-600">NO VÁLIDO COMO COMPROBANTE DE PAGO</p>
             <p className="text-xs font-semibold mt-1">{venta.numero}</p>
           </div>
 
