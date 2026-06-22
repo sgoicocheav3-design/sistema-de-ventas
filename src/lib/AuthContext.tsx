@@ -52,12 +52,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
     setToken(data.token)
     sessionStorage.setItem('auth', JSON.stringify({ user: data.user, token: data.token }))
+    document.cookie = `auth=${data.token}; path=/; max-age=28800; samesite=lax`
   }, [])
 
   const logout = useCallback(() => {
     setUser(null)
     setToken(null)
     sessionStorage.removeItem('auth')
+    document.cookie = 'auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
     router.push('/login')
   }, [router])
 
