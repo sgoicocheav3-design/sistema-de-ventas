@@ -2,7 +2,10 @@ import jwt from 'jsonwebtoken'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-me'
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET no está configurado')
+}
 
 export interface JwtPayload {
   id: number

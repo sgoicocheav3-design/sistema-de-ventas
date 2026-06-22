@@ -1,26 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
-import { Shield, Download, RefreshCw } from 'lucide-react'
+import { Shield, ExternalLink } from 'lucide-react'
 
 export default function BackupsPage() {
-  const [generating, setGenerating] = useState(false)
-  const [message, setMessage] = useState('')
+  const [dashboardUrl, setDashboardUrl] = useState('https://supabase.com/dashboard')
 
-  const handleGenerate = async () => {
-    setGenerating(true); setMessage('')
-    try {
-      const res = await fetch('/api/admin/backups', { method: 'POST' })
-      const data = await res.json()
-      if (res.ok) setMessage(`Backup generado: ${data.archivo}`)
-      else setMessage(data.message || 'Error al generar backup')
-    } catch {
-      setMessage('Error de conexión')
-    } finally {
-      setGenerating(false)
-    }
-  }
+  useEffect(() => {
+    fetch('/api/admin/backups')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.dashboardUrl) setDashboardUrl(d.dashboardUrl) })
+      .catch(() => {})
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -35,24 +27,27 @@ export default function BackupsPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 max-w-lg">
             <div className="flex items-center gap-3 mb-4">
               <Shield className="text-blue-600" size={24} />
-              <h2 className="text-lg font-semibold">Respaldo de Base de Datos</h2>
+              <h2 className="text-lg font-semibold">Respaldo en Supabase</h2>
             </div>
 
-            <p className="text-gray-500 text-sm mb-6">
-              Genera un backup completo de la base de datos. El archivo se guardará en el servidor en la carpeta <code className="bg-gray-100 px-1 rounded">backups/</code>.
+            <p className="text-gray-500 text-sm mb-4">
+              Todos los datos del sistema (usuarios, productos, ventas, inventario, etc.) se guardan en tu base de datos de Supabase.
+              No se almacena información de negocio en el servidor de la aplicación.
             </p>
 
-            {message && (
-              <div className={`text-sm px-4 py-2.5 rounded-lg mb-4 ${message.includes('Error') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                {message}
-              </div>
-            )}
+            <p className="text-gray-500 text-sm mb-6">
+              Los respaldos automáticos y manuales se configuran desde el panel de Supabase (Database → Backups).
+            </p>
 
-            <button onClick={handleGenerate} disabled={generating}
-              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition cursor-pointer">
-              {generating ? <RefreshCw size={18} className="animate-spin" /> : <Download size={18} />}
-              {generating ? 'Generando...' : 'Generar Backup'}
-            </button>
+            <a
+              href={dashboardUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition"
+            >
+              <ExternalLink size={18} />
+              Abrir panel de Supabase
+            </a>
           </div>
         </main>
       </div>

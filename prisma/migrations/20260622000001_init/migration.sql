@@ -1,4 +1,4 @@
-﻿-- CreateSchema
+-- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateTable
@@ -250,4 +250,3 @@ ALTER TABLE "solicitudes_reposicion" ADD CONSTRAINT "solicitudes_reposicion_soli
 
 -- AddForeignKey
 ALTER TABLE "solicitudes_reposicion" ADD CONSTRAINT "solicitudes_reposicion_revisorId_fkey" FOREIGN KEY ("revisorId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
