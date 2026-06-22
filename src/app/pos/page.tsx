@@ -205,8 +205,8 @@ export default function POSPage() {
         </header>
 
         <div className="flex-1 flex flex-col lg:flex-row">
-          <div className="flex-1 p-4 lg:p-6 overflow-y-auto">
-            <div className="flex gap-2 mb-4">
+          <div className="flex-1 p-4 lg:p-6 flex flex-col min-h-0">
+            <div className="flex gap-2 mb-4 shrink-0">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
@@ -236,36 +236,38 @@ export default function POSPage() {
               </select>
             </div>
 
-            {searching ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-              </div>
-            ) : productos.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <Package className="mx-auto mb-2 w-12 h-12" />
-                <p>Busca productos para agregar al carrito</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {productos.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => addToCart(p)}
-                    disabled={p.stock === 0}
-                    className="bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md hover:border-blue-300 disabled:opacity-50 transition cursor-pointer"
-                  >
-                    <p className="font-semibold text-gray-800 truncate">{p.nombre}</p>
-                    <p className="text-sm text-gray-500 truncate">{p.marca}</p>
-                    <div className="flex justify-between items-center mt-2">
-                      <span className="text-lg font-bold text-blue-600">S/ {Number(p.precio).toFixed(2)}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${p.stock <= 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                        Stock: {p.stock}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {searching ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                </div>
+              ) : productos.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Package className="mx-auto mb-2 w-12 h-12" />
+                  <p>Busca productos para agregar al carrito</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {productos.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => addToCart(p)}
+                      disabled={p.stock === 0}
+                      className="bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md hover:border-blue-300 disabled:opacity-50 transition cursor-pointer"
+                    >
+                      <p className="font-semibold text-gray-800 truncate">{p.nombre}</p>
+                      <p className="text-sm text-gray-500 truncate">{p.marca}</p>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-lg font-bold text-blue-600">S/ {Number(p.precio).toFixed(2)}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${p.stock <= 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                          Stock: {p.stock}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col">
