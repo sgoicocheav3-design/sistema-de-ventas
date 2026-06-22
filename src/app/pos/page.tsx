@@ -204,8 +204,8 @@ export default function POSPage() {
           <h1 className="text-xl font-bold text-gray-800">Punto de Venta</h1>
         </header>
 
-        <div className="flex-1 flex flex-col lg:flex-row">
-          <div className="flex-1 p-4 lg:p-6 overflow-y-auto">
+          <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+          <div className="flex-1 p-4 lg:p-6 overflow-y-auto min-h-0 scrollbar-pos">
             <div className="flex gap-2 mb-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
