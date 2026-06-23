@@ -31,13 +31,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const data: Record<string, unknown> = {}
 
     if (body.nombre !== undefined) {
+      const nombreNorm = body.nombre.trim().replace(/\s+/g, ' ')
       const existeNombre = await prisma.producto.findFirst({
-        where: { nombre: body.nombre.trim(), activo: true, id: { not: parseInt(id) } },
+        where: { nombre: { equals: nombreNorm, mode: 'insensitive' }, activo: true, id: { not: parseInt(id) } },
       })
       if (existeNombre) {
-        return NextResponse.json({ message: `Ya existe un producto con el nombre "${body.nombre.trim()}"` }, { status: 409 })
+        return NextResponse.json({ message: `Ya existe un producto con el nombre "${nombreNorm}"` }, { status: 409 })
       }
-      data.nombre = body.nombre.trim()
+      data.nombre = nombreNorm
     }
     if (body.marca !== undefined) data.marca = body.marca
     if (body.stock !== undefined) {

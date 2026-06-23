@@ -89,15 +89,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: `Ya existe un producto con código "${codigo}"` }, { status: 409 })
     }
 
-    const existeNombre = await prisma.producto.findFirst({ where: { nombre: nombre.trim(), activo: true } })
+    const nombreNorm = nombre.trim().replace(/\s+/g, ' ')
+    const existeNombre = await prisma.producto.findFirst({
+      where: { nombre: { equals: nombreNorm, mode: 'insensitive' }, activo: true },
+    })
     if (existeNombre) {
-      return NextResponse.json({ message: `Ya existe un producto con el nombre "${nombre.trim()}"` }, { status: 409 })
+      return NextResponse.json({ message: `Ya existe un producto con el nombre "${nombreNorm}"` }, { status: 409 })
     }
 
     const producto = await prisma.producto.create({
       data: {
         codigo,
-        nombre: nombre.trim(),
+        nombre: nombreNorm,
         marca: marca || null,
         categoriaId: categoriaId ? parseInt(categoriaId) : null,
         precio: Number(precio),
