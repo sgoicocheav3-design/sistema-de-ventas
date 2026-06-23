@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input:invalid, select:invalid, textarea:invalid {
+  border-color: #ef4444;
+}
+
+input:focus:invalid, select:focus:invalid, textarea:focus:invalid {
+  --tw-ring-color: #ef4444;
+  border-color: #ef4444;
+}
+
+.scrollbar-pos::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-pos::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.scrollbar-pos::-webkit-scrollbar-thumb {
+  background: #c4c4c4;
+  border-radius: 4px;
+}
+
+.scrollbar-pos::-webkit-scrollbar-thumb:hover {
+  background: #a3a3a3;
+}
+
+.scrollbar-pos {
+  scrollbar-width: thin;
+  scrollbar-color: #c4c4c4 #f1f1f1;
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+  #receipt-print-area,
+  #receipt-print-area *,
+  #comprobante-pago,
+  #comprobante-pago * {
+    visibility: visible;
+  }
+  #receipt-print-area,
+  #comprobante-pago {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 10px;
+  }
+}
+
+@media print and (min-width: 500px) {
+  #comprobante-pago {
+    max-width: 210mm;
+    margin: 0 auto;
+    font-size: 11pt;
+  }
+}
+
+@media print and (max-width: 499px) {
+  #comprobante-pago {
+    max-width: 80mm;
+    margin: 0 auto;
+    font-size: 9pt;
+  }
+}
