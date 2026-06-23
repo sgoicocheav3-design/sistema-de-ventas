@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, ShoppingCart, Package, Users, Truck, Settings,
+  LayoutDashboard, ShoppingCart, Package, Users, Truck,
   ClipboardList, BarChart3, Shield, LogOut, Menu, X, Warehouse,
   FileSpreadsheet, FileText, ClipboardCheck, UserCheck, FileSearch, DollarSign,
 } from 'lucide-react'
@@ -14,7 +14,6 @@ const navItems = [
   { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart, roles: ['VENDEDOR', 'ADMIN'] },
   { href: '/admin/usuarios', label: 'Usuarios', icon: Users, roles: ['ADMIN'] },
   { href: '/admin/proveedores', label: 'Proveedores', icon: Truck, roles: ['ADMIN'] },
-  { href: '/admin/config', label: 'Configuración', icon: Settings, roles: ['ADMIN'] },
   { href: '/admin/reportes', label: 'Reportes', icon: BarChart3, roles: ['ADMIN'] },
   { href: '/admin/backups', label: 'Backups', icon: Shield, roles: ['ADMIN'] },
   { href: '/admin/auditoria', label: 'Auditoría', icon: FileSearch, roles: ['ADMIN'] },
