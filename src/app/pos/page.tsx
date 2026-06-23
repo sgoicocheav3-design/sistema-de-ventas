@@ -36,7 +36,6 @@ export default function POSPage() {
   const [carrito, setCarrito] = useState<CarritoItem[]>([])
   const [metodoPago, setMetodoPago] = useState('EFECTIVO')
   const [montoRecibido, setMontoRecibido] = useState('')
-  const [clienteId, setClienteId] = useState('')
   const [searching, setSearching] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [resultado, setResultado] = useState<VentaData | null>(null)
@@ -213,7 +212,6 @@ export default function POSPage() {
           items: carrito.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
           metodoPago,
           montoRecibido: metodoPago === 'EFECTIVO' ? montoRecibido : total.toFixed(2),
-          clienteId: clienteId || undefined,
         }),
       })
       const data = await res.json()
@@ -561,17 +559,6 @@ export default function POSPage() {
                   Vuelto: S/ {vuelto.toFixed(2)}
                 </div>
               )}
-
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input
-                  type="number"
-                  value={clienteId}
-                  onChange={(e) => setClienteId(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg outline-none text-sm"
-                  placeholder="DNI Cliente (opcional)"
-                />
-              </div>
 
               {submitError && (
                 <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg border border-red-200">{submitError}</div>
