@@ -2,7 +2,6 @@
 
 import { useRef, useState, useCallback } from 'react'
 import { Printer, Download, ArrowLeft } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
 import { numeroALetras, fmtCurrency } from '@/lib/utils'
 import type { VentaData } from './types'
 
@@ -22,17 +21,6 @@ function getLabel(item: VentaData): string {
   const marca = (item as any).producto?.marca || (item as any).marca || ''
   const nombre = (item as any).producto?.nombre || (item as any).nombre || ''
   return marca ? `${nombre} - ${marca}` : nombre
-}
-
-function generarHashVenta(ventaId: number, numero: string, total: number): string {
-  const data = `${ventaId}|${numero}|${total.toFixed(2)}`
-  let hash = 0
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash
-  }
-  return Math.abs(hash).toString(16).padStart(8, '0')
 }
 
 interface ComprobantePagoProps {
@@ -55,10 +43,6 @@ export default function ComprobantePago({ venta, empresa, onVolver, onNuevaVenta
   const correo = empresa.correo || ''
 
   const totalNum = Number(venta.total)
-  const hash = generarHashVenta(venta.id, venta.numero, totalNum)
-  const qrValue = typeof window !== 'undefined'
-    ? `${window.location.origin}/api/ventas/${venta.id}?hash=${hash}`
-    : `https://sistema-ventas/ventas/${venta.id}`
 
   const handlePrint = useCallback(() => {
     window.print()
@@ -198,11 +182,6 @@ export default function ComprobantePago({ venta, empresa, onVolver, onNuevaVenta
 
           <div className="text-[10px] font-semibold text-center border-t border-gray-400 pt-2 mb-3">
             <p>SON: {numeroALetras(totalNum)}</p>
-          </div>
-
-          <div className="flex flex-col items-center mb-3">
-            <QRCodeSVG value={qrValue} size={80} />
-            <p className="text-[8px] text-gray-500 mt-0.5">QR de consulta interna</p>
           </div>
 
           <div className="text-center text-[9px] text-gray-500 border-t border-gray-400 pt-2">
