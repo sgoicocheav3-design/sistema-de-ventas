@@ -4,16 +4,23 @@ import type { NextRequest } from 'next/server'
 const publicRoutes = ['/login', '/recuperar-password', '/reset-password']
 const publicApiRoutes = ['/api/auth/login', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/logout', '/api/webhooks/']
 
-function isJwtValid(token: string): boolean {
+const routePermissions: Array<{ prefix: string; roles: string[] }> = [
+  { prefix: '/admin', roles: ['ADMIN'] },
+  { prefix: '/pos', roles: ['VENDEDOR', 'ADMIN'] },
+  { prefix: '/almacen', roles: ['ALMACENERO', 'ADMIN'] },
+  { prefix: '/gerencia', roles: ['GERENTE', 'ADMIN'] },
+]
+
+function decodeToken(token: string): { id: number; rol: string } | null {
   try {
     const parts = token.split('.')
-    if (parts.length !== 3) return false
+    if (parts.length !== 3) return null
     const payload = JSON.parse(atob(parts[1]))
-    if (!payload.id || !payload.rol) return false
-    if (payload.exp && Date.now() >= payload.exp * 1000) return false
-    return true
+    if (!payload.id || !payload.rol) return null
+    if (payload.exp && Date.now() >= payload.exp * 1000) return null
+    return { id: payload.id, rol: payload.rol }
   } catch {
-    return false
+    return null
   }
 }
 
@@ -29,7 +36,9 @@ export function middleware(req: NextRequest) {
   }
 
   const authRaw = req.cookies.get('auth')?.value
-  if (!authRaw || !isJwtValid(authRaw)) {
+  const decoded = authRaw ? decodeToken(authRaw) : null
+
+  if (!decoded) {
     const response = pathname.startsWith('/api/')
       ? NextResponse.json({ message: 'No autorizado' }, { status: 401 })
       : NextResponse.redirect(new URL('/login', req.url))
@@ -37,6 +46,18 @@ export function middleware(req: NextRequest) {
       response.cookies.set('auth', '', { path: '/', maxAge: 0 })
     }
     return response
+  }
+
+  for (const { prefix, roles } of routePermissions) {
+    if (pathname === prefix || pathname.startsWith(prefix + '/')) {
+      if (!roles.includes(decoded.rol)) {
+        if (pathname.startsWith('/api/')) {
+          return NextResponse.json({ message: 'No tienes permisos para esta acción' }, { status: 403 })
+        }
+        return NextResponse.redirect(new URL('/dashboard', req.url))
+      }
+      break
+    }
   }
 
   return NextResponse.next()
