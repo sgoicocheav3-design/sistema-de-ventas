@@ -30,6 +30,8 @@ export default function POSPage() {
   const [q, setQ] = useState('')
   const [categoria, setCategoria] = useState('')
   const [limite, setLimite] = useState('50')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [productos, setProductos] = useState<Producto[]>([])
   const [carrito, setCarrito] = useState<CarritoItem[]>([])
   const [metodoPago, setMetodoPago] = useState('EFECTIVO')
@@ -135,7 +137,7 @@ export default function POSPage() {
     fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => {})
   }, [])
 
-  const search = useCallback(async (query: string, cat: string, limit: string) => {
+  const search = useCallback(async (query: string, cat: string, limit: string, pg: number) => {
     setSearching(true)
     setSearchError('')
     try {
@@ -143,10 +145,12 @@ export default function POSPage() {
       if (query.trim()) params.set('q', query)
       if (cat) params.set('categoria', cat)
       if (limit) params.set('limit', limit)
+      if (pg > 1) params.set('page', String(pg))
       const res = await fetch(`/api/almacen/productos?${params}`)
       if (res.ok) {
         const data = await res.json()
-        setProductos(Array.isArray(data) ? data : data.productos || [])
+        setProductos(data.productos || [])
+        setTotalPages(data.totalPages || 1)
       }
       else setSearchError('Error al buscar productos')
     } catch {
@@ -157,9 +161,16 @@ export default function POSPage() {
   }, [])
 
   useEffect(() => {
-    const t = setTimeout(() => search(q, categoria, limite), 300)
+    setPage(1)
+    const t = setTimeout(() => search(q, categoria, limite, 1), 300)
     return () => clearTimeout(t)
   }, [q, categoria, limite, search])
+
+  useEffect(() => {
+    if (page <= 1) return
+    const t = setTimeout(() => search(q, categoria, limite, page), 300)
+    return () => clearTimeout(t)
+  }, [page])
 
   const addToCart = (p: Producto) => {
     setCarrito((prev) => {
@@ -413,25 +424,58 @@ export default function POSPage() {
                 <p>Busca productos para agregar al carrito</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {productos.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => addToCart(p)}
-                    disabled={p.stock === 0}
-                    className="bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md hover:border-blue-300 disabled:opacity-50 transition cursor-pointer"
-                  >
-                    <p className="font-semibold text-gray-800 truncate">{p.nombre}</p>
-                    <p className="text-sm text-gray-500 truncate">{p.marca}</p>
-                    <div className="flex justify-between items-center mt-2">
-                      <span className="text-lg font-bold text-blue-600">S/ {Number(p.precio).toFixed(2)}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${p.stock <= 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                        Stock: {p.stock}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {productos.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => addToCart(p)}
+                      disabled={p.stock === 0}
+                      className="bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md hover:border-blue-300 disabled:opacity-50 transition cursor-pointer"
+                    >
+                      <p className="font-semibold text-gray-800 truncate">{p.nombre}</p>
+                      <p className="text-sm text-gray-500 truncate">{p.marca}</p>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-lg font-bold text-blue-600">S/ {Number(p.precio).toFixed(2)}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${p.stock <= 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                          Stock: {p.stock}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page <= 1}
+                      className="px-3 py-1.5 rounded border border-gray-300 text-sm disabled:opacity-30 hover:bg-gray-100 transition cursor-pointer"
+                    >
+                      Anterior
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                      <button
+                        key={pg}
+                        onClick={() => setPage(pg)}
+                        className={`w-8 h-8 rounded text-sm font-medium transition cursor-pointer ${
+                          pg === page
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-gray-300 hover:bg-gray-100'
+                        }`}
+                      >
+                        {pg}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                      className="px-3 py-1.5 rounded border border-gray-300 text-sm disabled:opacity-30 hover:bg-gray-100 transition cursor-pointer"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
