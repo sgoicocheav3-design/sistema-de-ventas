@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
+import { parsePagination } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
   const auth = withAuth(req)
@@ -8,8 +9,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const estado = searchParams.get('estado') || 'PENDIENTE'
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = parseInt(searchParams.get('limit') || '50')
+  const { page, limit, skip } = parsePagination(searchParams)
 
   try {
     const where: Record<string, unknown> = { estado }

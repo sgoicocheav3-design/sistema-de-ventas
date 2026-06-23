@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
+import Pagination from '@/components/Pagination'
 import { Plus, Edit2, Trash2, Building, X } from 'lucide-react'
 
 interface Proveedor {
@@ -10,19 +11,27 @@ interface Proveedor {
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState({ nombre: '', ruc: '', contacto: '' })
   const [error, setError] = useState('')
 
-  const fetchData = async () => {
-    const res = await fetch('/api/admin/proveedores')
-    if (res.ok) { const d = await res.json(); setProveedores(Array.isArray(d) ? d : []) }
+  const fetchData = async (p: number, l: number) => {
+    setLoading(true)
+    const res = await fetch(`/api/admin/proveedores?page=${p}&limit=${l}`)
+    if (res.ok) { const d = await res.json(); setProveedores(d.proveedores || []); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages) }
     setLoading(false)
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData(1, limit) }, [limit])
+
+  const handlePageChange = (p: number) => fetchData(p, limit)
+  const handleLimitChange = (l: number) => { setLimit(l); fetchData(1, l) }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,14 +42,14 @@ export default function ProveedoresPage() {
     const data = await res.json()
     if (!res.ok) { setError(data.message); return }
     setShowForm(false); setEditId(null); setForm({ nombre: '', ruc: '', contacto: '' })
-    fetchData()
+    fetchData(1, limit)
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('¿Desactivar este proveedor?')) return
     const res = await fetch(`/api/admin/proveedores/${id}`, { method: 'DELETE' })
     if (!res.ok) { const d = await res.json(); alert(d.message); return }
-    fetchData()
+    fetchData(1, limit)
   }
 
   const openEdit = (p: Proveedor) => {
@@ -131,6 +140,8 @@ export default function ProveedoresPage() {
                 </tbody>
               </table>
               </div>
+              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
+                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
             </div>
           )}
         </main>

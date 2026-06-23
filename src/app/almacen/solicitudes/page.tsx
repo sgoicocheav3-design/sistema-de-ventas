@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
+import Pagination from '@/components/Pagination'
 import { ClipboardCheck, Plus, Search, X } from 'lucide-react'
 
 interface Solicitud {
@@ -17,6 +18,7 @@ export default function SolicitudesPage() {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [estado, setEstado] = useState('PENDIENTE')
@@ -31,10 +33,10 @@ export default function SolicitudesPage() {
       .then((d) => setProductos(d.productos || [])).catch(() => setLoadError('Error al cargar datos'))
   }, [])
 
-  const fetchData = async (p: number) => {
+  const fetchData = async (p: number, l: number) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ page: String(p), limit: '30', estado })
+      const params = new URLSearchParams({ page: String(p), limit: String(l), estado })
       const res = await fetch(`/api/almacen/solicitudes?${params}`)
       if (res.ok) {
         const d = await res.json()
@@ -44,7 +46,10 @@ export default function SolicitudesPage() {
       } finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchData(1) }, [estado])
+  useEffect(() => { fetchData(1, limit) }, [estado, limit])
+
+  const handlePageChange = (p: number) => fetchData(p, limit)
+  const handleLimitChange = (l: number) => { setLimit(l); fetchData(1, l) }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
@@ -53,7 +58,7 @@ export default function SolicitudesPage() {
     })
     const data = await res.json()
     if (!res.ok) { setError(data.message); return }
-    setShowForm(false); setForm({ productoId: '', cantidad: '' }); fetchData(1)
+    setShowForm(false); setForm({ productoId: '', cantidad: '' }); fetchData(1, limit)
   }
 
   const estados = ['PENDIENTE', 'APROBADA', 'RECHAZADA', 'RECIBIDA']
@@ -146,6 +151,8 @@ export default function SolicitudesPage() {
                 </tbody>
               </table>
               </div>
+              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
+                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
             </div>
           )}
         </main>

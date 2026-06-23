@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
+import Pagination from '@/components/Pagination'
 import { FileSearch, User } from 'lucide-react'
 
 interface LogEntry {
@@ -14,18 +15,21 @@ interface LogEntry {
 export default function AuditoriaPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
   const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  const fetchLogs = async (p: number) => {
+  const fetchLogs = async (p: number, l: number) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/auditoria?page=${p}`)
+      const res = await fetch(`/api/admin/auditoria?page=${p}&limit=${l}`)
       if (res.ok) {
         const data = await res.json()
         setLogs(data.registros || [])
-        setTotalPages(data.totalPages)
+        setTotal(data.total)
         setPage(data.page)
+        setTotalPages(data.totalPages)
       }
     } catch {
       // ignore
@@ -34,7 +38,10 @@ export default function AuditoriaPage() {
     }
   }
 
-  useEffect(() => { fetchLogs(1) }, [])
+  useEffect(() => { fetchLogs(1, limit) }, [limit])
+
+  const handlePageChange = (p: number) => fetchLogs(p, limit)
+  const handleLimitChange = (l: number) => { setLimit(l); fetchLogs(1, l) }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -81,16 +88,8 @@ export default function AuditoriaPage() {
                   </tbody>
                 </table>
               </div>
-
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-2 p-4 border-t">
-                  <button onClick={() => fetchLogs(page - 1)} disabled={page <= 1}
-                    className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 cursor-pointer">Anterior</button>
-                  <span className="text-sm text-gray-600">Página {page} de {totalPages}</span>
-                  <button onClick={() => fetchLogs(page + 1)} disabled={page >= totalPages}
-                    className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 cursor-pointer">Siguiente</button>
-                </div>
-              )}
+              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
+                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
             </div>
           )}
         </main>

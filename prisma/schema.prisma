@@ -15,6 +15,8 @@ model Usuario {
   passwordHash   String    @db.Text
   rol            String    @db.VarChar(50)
   activo         Boolean   @default(true)
+  intentosFallidos Int     @default(0)
+  bloqueadoHasta  DateTime?
   resetCode      String?   @db.VarChar(10)
   resetExpiry    DateTime?
   creadoEn       DateTime  @default(now())

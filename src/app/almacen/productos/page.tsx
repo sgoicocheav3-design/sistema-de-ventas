@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
+import Pagination from '@/components/Pagination'
 import { Package, Plus, Edit2, Search, Filter, X } from 'lucide-react'
 
 interface Categoria {
@@ -18,6 +19,7 @@ export default function ProductosPage() {
   const [productos, setProductos] = useState<Producto[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
@@ -33,10 +35,10 @@ export default function ProductosPage() {
     fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => setLoadError('Error al cargar categorías'))
   }, [])
 
-  const fetchProductos = useCallback(async (p: number) => {
+  const fetchProductos = useCallback(async (p: number, l: number) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ page: String(p), limit: '20' })
+      const params = new URLSearchParams({ page: String(p), limit: String(l) })
       if (q.trim()) params.set('q', q)
       if (catFilter) params.set('categoria', catFilter)
       const res = await fetch(`/api/almacen/productos?${params}`)
@@ -55,9 +57,12 @@ export default function ProductosPage() {
   }, [q, catFilter])
 
   useEffect(() => {
-    const t = setTimeout(() => fetchProductos(1), 300)
+    const t = setTimeout(() => fetchProductos(1, limit), 300)
     return () => clearTimeout(t)
-  }, [q, catFilter, fetchProductos])
+  }, [q, catFilter, limit, fetchProductos])
+
+  const handlePageChange = (p: number) => fetchProductos(p, limit)
+  const handleLimitChange = (l: number) => { setLimit(l); fetchProductos(1, l) }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
@@ -70,7 +75,7 @@ export default function ProductosPage() {
     if (!res.ok) { setError(data.message); return }
     setShowForm(false); setEditId(null)
     setForm({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '0' })
-    fetchProductos(1)
+    fetchProductos(1, limit)
   }
 
   const openEdit = (p: Producto) => {
@@ -191,18 +196,8 @@ export default function ProductosPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
-                <span>{total} productos en total</span>
-                {totalPages > 1 && (
-                  <div className="flex gap-2">
-                    <button onClick={() => fetchProductos(page - 1)} disabled={page <= 1}
-                      className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 cursor-pointer">Anterior</button>
-                    <span className="px-2 py-1">Pág {page} de {totalPages}</span>
-                    <button onClick={() => fetchProductos(page + 1)} disabled={page >= totalPages}
-                      className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 cursor-pointer">Siguiente</button>
-                  </div>
-                )}
-              </div>
+              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
+                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
             </>
           )}
         </main>

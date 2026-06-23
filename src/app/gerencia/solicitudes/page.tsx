@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
+import Pagination from '@/components/Pagination'
 import { UserCheck, CheckCircle, XCircle } from 'lucide-react'
 
 interface Solicitud {
@@ -13,29 +14,40 @@ interface Solicitud {
 
 export default function GerenciaSolicitudesPage() {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const fetchData = async () => {
+  const fetchData = async (p: number, l: number) => {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/gerencia/solicitudes?estado=PENDIENTE')
+      const res = await fetch(`/api/gerencia/solicitudes?estado=PENDIENTE&page=${p}&limit=${l}`)
       if (res.ok) {
         const d = await res.json()
         setSolicitudes(d.solicitudes || [])
+        setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
       } else setError('Error al cargar solicitudes')
     } catch { setError('Error de conexión')
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData(1, limit) }, [limit])
+
+  const handlePageChange = (p: number) => fetchData(p, limit)
+  const handleLimitChange = (l: number) => { setLimit(l); fetchData(1, l) }
 
   const handleReview = async (id: number, estado: string) => {
     const res = await fetch(`/api/almacen/solicitudes/${id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado }),
     })
-    if (res.ok) setSolicitudes((prev) => prev.filter((s) => s.id !== id))
+    if (res.ok) {
+      setSolicitudes((prev) => prev.filter((s) => s.id !== id))
+      setTotal((prev) => prev - 1)
+    }
   }
 
   return (
@@ -58,30 +70,34 @@ export default function GerenciaSolicitudesPage() {
               <p>No hay solicitudes pendientes de revisión</p>
             </div>
           ) : (
-            <div className="grid gap-4">
-              {solicitudes.map((s) => (
-                <div key={s.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-800">{s.producto.nombre}</h3>
-                      <p className="text-sm text-gray-500">Código: {s.producto.codigo} — Stock actual: {s.producto.stock}</p>
-                      <p className="text-sm text-gray-500">Solicitante: {s.solicitante.nombre} — Cantidad: {Number(s.cantidad)}</p>
-                      <p className="text-xs text-gray-400">{new Date(s.creadoEn).toLocaleString()}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleReview(s.id, 'APROBADA')}
-                        className="flex items-center gap-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer">
-                        <CheckCircle size={16} /> Aprobar
-                      </button>
-                      <button onClick={() => handleReview(s.id, 'RECHAZADA')}
-                        className="flex items-center gap-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 cursor-pointer">
-                        <XCircle size={16} /> Rechazar
-                      </button>
+            <>
+              <div className="grid gap-4 mb-4">
+                {solicitudes.map((s) => (
+                  <div key={s.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-800">{s.producto.nombre}</h3>
+                        <p className="text-sm text-gray-500">Código: {s.producto.codigo} — Stock actual: {s.producto.stock}</p>
+                        <p className="text-sm text-gray-500">Solicitante: {s.solicitante.nombre} — Cantidad: {Number(s.cantidad)}</p>
+                        <p className="text-xs text-gray-400">{new Date(s.creadoEn).toLocaleString()}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleReview(s.id, 'APROBADA')}
+                          className="flex items-center gap-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer">
+                          <CheckCircle size={16} /> Aprobar
+                        </button>
+                        <button onClick={() => handleReview(s.id, 'RECHAZADA')}
+                          className="flex items-center gap-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 cursor-pointer">
+                          <XCircle size={16} /> Rechazar
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
+                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
+            </>
           )}
         </main>
       </div>

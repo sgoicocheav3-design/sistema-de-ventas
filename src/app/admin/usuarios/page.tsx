@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
+import Pagination from '@/components/Pagination'
 import { Plus, Edit2, Trash2, User, X } from 'lucide-react'
 
 interface Usuario {
@@ -14,19 +15,27 @@ const ROLES = ['ADMIN', 'VENDEDOR', 'ALMACENERO', 'GERENTE']
 export default function UsuariosPage() {
   const { user } = useAuth()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState({ nombre: '', email: '', password: '', rol: 'VENDEDOR' })
   const [error, setError] = useState('')
 
-  const fetchUsuarios = async () => {
-    const res = await fetch('/api/admin/usuarios')
-    if (res.ok) { const d = await res.json(); setUsuarios(Array.isArray(d) ? d : []) }
+  const fetchUsuarios = async (p: number, l: number) => {
+    setLoading(true)
+    const res = await fetch(`/api/admin/usuarios?page=${p}&limit=${l}`)
+    if (res.ok) { const d = await res.json(); setUsuarios(d.usuarios || []); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages) }
     setLoading(false)
   }
 
-  useEffect(() => { fetchUsuarios() }, [])
+  useEffect(() => { fetchUsuarios(1, limit) }, [limit])
+
+  const handlePageChange = (p: number) => fetchUsuarios(p, limit)
+  const handleLimitChange = (l: number) => { setLimit(l); fetchUsuarios(1, l) }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,7 +49,7 @@ export default function UsuariosPage() {
     const data = await res.json()
     if (!res.ok) { setError(data.message); return }
     setShowForm(false); setEditId(null); setForm({ nombre: '', email: '', password: '', rol: 'VENDEDOR' })
-    fetchUsuarios()
+    fetchUsuarios(1, limit)
   }
 
   const handleDelete = async (id: number) => {
@@ -48,7 +57,7 @@ export default function UsuariosPage() {
     const res = await fetch(`/api/admin/usuarios/${id}`, { method: 'DELETE' })
     const data = await res.json()
     if (!res.ok) { alert(data.message); return }
-    fetchUsuarios()
+    fetchUsuarios(1, limit)
   }
 
   const openEdit = (u: Usuario) => {
@@ -149,6 +158,8 @@ export default function UsuariosPage() {
                 </tbody>
               </table>
               </div>
+              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
+                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
             </div>
           )}
         </main>

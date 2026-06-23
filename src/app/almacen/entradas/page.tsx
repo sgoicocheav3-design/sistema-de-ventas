@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
+import Pagination from '@/components/Pagination'
 import { ClipboardList, Plus, Search, X } from 'lucide-react'
 
 interface Entrada {
@@ -15,6 +16,7 @@ export default function EntradasPage() {
   const [entradas, setEntradas] = useState<Entrada[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [desde, setDesde] = useState('')
@@ -29,14 +31,14 @@ export default function EntradasPage() {
   useEffect(() => {
     Promise.all([
       fetch('/api/almacen/productos?limit=500').then((r) => r.ok && r.json()).then((d) => setProductos(d.productos || [])),
-      fetch('/api/admin/proveedores').then((r) => r.ok && r.json()).then(setProveedores),
+      fetch('/api/admin/proveedores').then((r) => r.ok && r.json()).then((d) => setProveedores(d.proveedores || d || [])),
     ]).catch(() => setLoadError('Error al cargar datos iniciales'))
   }, [])
 
-  const fetchData = async (p: number) => {
+  const fetchData = async (p: number, l: number) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ page: String(p), limit: '30' })
+      const params = new URLSearchParams({ page: String(p), limit: String(l) })
       if (desde) params.set('desde', desde)
       if (hasta) params.set('hasta', hasta)
       const res = await fetch(`/api/almacen/entradas?${params}`)
@@ -48,7 +50,10 @@ export default function EntradasPage() {
       } finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchData(1) }, [])
+  useEffect(() => { fetchData(1, limit) }, [desde, hasta, limit])
+
+  const handlePageChange = (p: number) => fetchData(p, limit)
+  const handleLimitChange = (l: number) => { setLimit(l); fetchData(1, l) }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
@@ -58,7 +63,7 @@ export default function EntradasPage() {
     })
     const data = await res.json()
     if (!res.ok) { setError(data.message); return }
-    setShowForm(false); setForm({ productoId: '', proveedorId: '', cantidad: '' }); fetchData(1)
+    setShowForm(false); setForm({ productoId: '', proveedorId: '', cantidad: '' }); fetchData(1, limit)
   }
 
   return (
@@ -113,7 +118,7 @@ export default function EntradasPage() {
             <div><label className="block text-xs font-medium text-gray-500">Hasta</label>
               <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)}
                 className="px-3 py-2 border rounded-lg outline-none" /></div>
-            <button onClick={() => fetchData(1)}
+            <button onClick={() => fetchData(1, limit)}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 cursor-pointer">
               <Search size={16} /> Filtrar
             </button>
@@ -151,6 +156,8 @@ export default function EntradasPage() {
                 </tbody>
               </table>
               </div>
+              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
+                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
             </div>
           )}
         </main>

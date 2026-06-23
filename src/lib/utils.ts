@@ -1,6 +1,12 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
+export function parsePagination(searchParams: URLSearchParams, defaultLimit = 10) {
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || String(defaultLimit)) || defaultLimit))
+  return { page, limit, skip: (page - 1) * limit }
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

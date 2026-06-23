@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
+import { parsePagination } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
   const auth = withAuth(req, ['ADMIN', 'GERENTE'])
   if (auth instanceof NextResponse) return auth
 
   const { searchParams } = new URL(req.url)
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = parseInt(searchParams.get('limit') || '50')
+  const { page, limit, skip } = parsePagination(searchParams)
   const userId = searchParams.get('userId')
 
   try {

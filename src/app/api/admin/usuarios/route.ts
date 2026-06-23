@@ -2,18 +2,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
+import { parsePagination } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
   const auth = withAuth(req, ['ADMIN'])
   if (auth instanceof NextResponse) return auth
 
+  const { searchParams } = new URL(req.url)
+  const { page, limit, skip } = parsePagination(searchParams)
+
   try {
-    const usuarios = await prisma.usuario.findMany({
-      where: { activo: true },
-      select: { id: true, nombre: true, email: true, rol: true, creadoEn: true },
-      orderBy: { creadoEn: 'desc' },
-    })
-    return NextResponse.json(usuarios)
+    const where = { activo: true }
+    const [usuarios, total] = await Promise.all([
+      prisma.usuario.findMany({
+        where,
+        select: { id: true, nombre: true, email: true, rol: true, creadoEn: true },
+        orderBy: { creadoEn: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.usuario.count({ where }),
+    ])
+    return NextResponse.json({ usuarios, total, page, totalPages: Math.ceil(total / limit) })
   } catch {
     return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 })
   }

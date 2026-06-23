@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
+import { parsePagination } from '@/lib/utils'
 
 const validarRUC = (ruc: string) => /^\d{11}$/.test(ruc)
 
@@ -8,12 +9,21 @@ export async function GET(req: NextRequest) {
   const auth = withAuth(req, ['ADMIN'])
   if (auth instanceof NextResponse) return auth
 
+  const { searchParams } = new URL(req.url)
+  const { page, limit, skip } = parsePagination(searchParams)
+
   try {
-    const proveedores = await prisma.proveedor.findMany({
-      where: { activo: true },
-      orderBy: { nombre: 'asc' },
-    })
-    return NextResponse.json(proveedores)
+    const where = { activo: true }
+    const [proveedores, total] = await Promise.all([
+      prisma.proveedor.findMany({
+        where,
+        orderBy: { nombre: 'asc' },
+        skip,
+        take: limit,
+      }),
+      prisma.proveedor.count({ where }),
+    ])
+    return NextResponse.json({ proveedores, total, page, totalPages: Math.ceil(total / limit) })
   } catch {
     return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 })
   }

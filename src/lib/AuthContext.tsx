@@ -15,7 +15,7 @@ interface AuthContextType {
   token: string | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -31,13 +31,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        setUser(parsed.user)
         setToken(parsed.token)
+        setUser(parsed.user)
+        fetch('/api/auth/me', { headers: { Authorization: `Bearer ${parsed.token}` } })
+          .then((r) => {
+            if (!r.ok) { throw new Error('Token inválido') }
+            return r.json()
+          })
+          .then((d) => {
+            setUser(d.user)
+            setToken(d.token)
+            sessionStorage.setItem('auth', JSON.stringify({ user: d.user, token: d.token }))
+          })
+          .catch(() => {
+            sessionStorage.removeItem('auth')
+            setUser(null)
+            setToken(null)
+          })
+          .finally(() => setLoading(false))
       } catch {
         sessionStorage.removeItem('auth')
+        setLoading(false)
       }
+    } else {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
@@ -52,10 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
     setToken(data.token)
     sessionStorage.setItem('auth', JSON.stringify({ user: data.user, token: data.token }))
-    document.cookie = `auth=${data.token}; path=/; max-age=28800; samesite=lax`
   }, [])
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch {
+      // Ignorar errores de red en logout
+    }
     setUser(null)
     setToken(null)
     sessionStorage.removeItem('auth')

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
+import Pagination from '@/components/Pagination'
 import { Warehouse, CheckCircle } from 'lucide-react'
 
 interface Solicitud {
@@ -12,6 +13,10 @@ interface Solicitud {
 
 export default function RecepcionesPage() {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [proveedores, setProveedores] = useState<Array<{ id: number; nombre: string }>>([])
@@ -19,12 +24,27 @@ export default function RecepcionesPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/almacen/solicitudes?estado=APROBADA').then((r) => r.ok && r.json())
-        .then((d) => setSolicitudes(d.solicitudes || [])),
-      fetch('/api/admin/proveedores').then((r) => r.ok && r.json()).then(setProveedores),
-    ]).catch(() => setLoadError('Error al cargar datos')).finally(() => setLoading(false))
+    fetch('/api/admin/proveedores').then((r) => r.ok && r.json())
+      .then((d) => setProveedores(d.proveedores || d || [])).catch(() => setLoadError('Error al cargar datos'))
   }, [])
+
+  const fetchData = async (p: number, l: number) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/almacen/solicitudes?estado=APROBADA&page=${p}&limit=${l}`)
+      if (res.ok) {
+        const d = await res.json()
+        setSolicitudes(d.solicitudes || [])
+        setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
+      }
+    } catch { setLoadError('Error al cargar datos')
+    } finally { setLoading(false) }
+  }
+
+  useEffect(() => { fetchData(1, limit) }, [limit])
+
+  const handlePageChange = (p: number) => fetchData(p, limit)
+  const handleLimitChange = (l: number) => { setLimit(l); fetchData(1, l) }
 
   const handleRecepcionar = async (solicitudId: number) => {
     if (!recepcionando || !recepcionando.proveedorId || !recepcionando.cantidad) return
@@ -41,6 +61,7 @@ export default function RecepcionesPage() {
     if (!res.ok) { setError(data.message); return }
     setRecepcionando(null)
     setSolicitudes((prev) => prev.filter((s) => s.id !== solicitudId))
+    setTotal((prev) => prev - 1)
   }
 
   return (
@@ -63,47 +84,51 @@ export default function RecepcionesPage() {
               <p>No hay solicitudes aprobadas pendientes de recepción</p>
             </div>
           ) : (
-            <div className="grid gap-4">
-              {solicitudes.map((s) => (
-                <div key={s.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-semibold text-gray-800">{s.producto.nombre}</h3>
-                      <p className="text-sm text-gray-500">Código: {s.producto.codigo}</p>
-                    </div>
-                    <span className="text-lg font-bold text-blue-600">x{Number(s.cantidad)}</span>
-                  </div>
-
-                  {recepcionando?.solicitudId === s.id ? (
-                    <div className="space-y-3">
-                      <select value={recepcionando.proveedorId}
-                        onChange={(e) => setRecepcionando({ ...recepcionando, proveedorId: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg outline-none">
-                        <option value="">Seleccionar proveedor</option>
-                        {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                      </select>
-                      <input type="number" value={recepcionando.cantidad}
-                        onChange={(e) => setRecepcionando({ ...recepcionando, cantidad: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg outline-none" placeholder="Cantidad recibida" min={1} />
-                      {error && <div className="text-red-600 text-sm">{error}</div>}
-                      <div className="flex gap-2">
-                        <button onClick={() => handleRecepcionar(s.id)}
-                          className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer">
-                          <CheckCircle size={16} /> Confirmar Recepción
-                        </button>
-                        <button onClick={() => setRecepcionando(null)}
-                          className="px-4 py-2 border rounded-lg hover:bg-gray-50 cursor-pointer">Cancelar</button>
+            <>
+              <div className="grid gap-4 mb-4">
+                {solicitudes.map((s) => (
+                  <div key={s.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="font-semibold text-gray-800">{s.producto.nombre}</h3>
+                        <p className="text-sm text-gray-500">Código: {s.producto.codigo}</p>
                       </div>
+                      <span className="text-lg font-bold text-blue-600">x{Number(s.cantidad)}</span>
                     </div>
-                  ) : (
-                    <button onClick={() => setRecepcionando({ solicitudId: s.id, proveedorId: '', cantidad: String(s.cantidad) })}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition cursor-pointer">
-                      Recepcionar
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+
+                    {recepcionando?.solicitudId === s.id ? (
+                      <div className="space-y-3">
+                        <select value={recepcionando.proveedorId}
+                          onChange={(e) => setRecepcionando({ ...recepcionando, proveedorId: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg outline-none">
+                          <option value="">Seleccionar proveedor</option>
+                          {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                        </select>
+                        <input type="number" value={recepcionando.cantidad}
+                          onChange={(e) => setRecepcionando({ ...recepcionando, cantidad: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg outline-none" placeholder="Cantidad recibida" min={1} />
+                        {error && <div className="text-red-600 text-sm">{error}</div>}
+                        <div className="flex gap-2">
+                          <button onClick={() => handleRecepcionar(s.id)}
+                            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer">
+                            <CheckCircle size={16} /> Confirmar Recepción
+                          </button>
+                          <button onClick={() => setRecepcionando(null)}
+                            className="px-4 py-2 border rounded-lg hover:bg-gray-50 cursor-pointer">Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setRecepcionando({ solicitudId: s.id, proveedorId: '', cantidad: String(s.cantidad) })}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition cursor-pointer">
+                        Recepcionar
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
+                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
+            </>
           )}
         </main>
       </div>
