@@ -79,6 +79,9 @@ export default function POSPage() {
         setQrModal(null)
         setCarrito([])
         setMontoRecibido('')
+        fetch('/api/almacen/productos?limit=50').then(r => r.ok && r.json()).then(data => {
+          if (data?.productos) setProductos(data.productos)
+        }).catch(() => {})
       } else if (data.estado === 'RECHAZADO' || data.estado === 'CANCELADO') {
         if (intervalRef.current) {
           clearInterval(intervalRef.current)
@@ -226,6 +229,7 @@ export default function POSPage() {
       setResultado(data as VentaData)
       setCarrito([])
       setMontoRecibido('')
+      search(q, categoria, limite, 1)
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Error al procesar venta')
     } finally {
