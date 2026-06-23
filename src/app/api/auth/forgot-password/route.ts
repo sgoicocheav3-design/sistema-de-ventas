@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
         data: { resetTokenHash: tokenHash, resetExpiry: expiry, resetUsed: false },
       })
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const proto = req.headers.get('x-forwarded-proto') || 'http'
+      const host = req.headers.get('host') || 'localhost:3000'
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`
       const resetLink = `${baseUrl}/reset-password/${rawToken}`
 
       try {
