@@ -1,65 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
 import { prisma } from '@/lib/prisma'
+import { sendPasswordResetEmail } from '@/lib/email'
+import { createHash, randomBytes } from 'crypto'
 
-let transporter: nodemailer.Transporter | null = null
-function getTransporter() {
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    })
-  }
-  return transporter
-}
+const RESET_EXPIRY_MINUTES = 30
+const COOLDOWN_SECONDS = 60
 
 export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json()
-    if (!email) {
-      return NextResponse.json({ message: 'Email es requerido' }, { status: 400 })
+    if (!email || typeof email !== 'string') {
+      return NextResponse.json({ message: 'Email requerido' }, { status: 400 })
     }
 
-    const usuario = await prisma.usuario.findFirst({ where: { email, activo: true } })
+    const usuario = await prisma.usuario.findUnique({ where: { email: email.toLowerCase().trim() } })
 
-    if (usuario) {
-      const codigo = String(Math.floor(1000 + Math.random() * 9000))
-      const expiry = new Date(Date.now() + 15 * 60 * 1000)
+    if (usuario && usuario.activo) {
+      if (usuario.resetExpiry && !usuario.resetUsed && new Date() < usuario.resetExpiry) {
+        const remainingMs = usuario.resetExpiry.getTime() - Date.now()
+        if (remainingMs > (RESET_EXPIRY_MINUTES * 60 - COOLDOWN_SECONDS) * 1000) {
+          return NextResponse.json({
+            message: 'Si el correo está registrado, recibirás un enlace de recuperación',
+          })
+        }
+      }
+
+      const rawToken = randomBytes(32).toString('hex')
+      const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+      const expiry = new Date(Date.now() + RESET_EXPIRY_MINUTES * 60 * 1000)
 
       await prisma.usuario.update({
         where: { id: usuario.id },
-        data: { resetCode: codigo, resetExpiry: expiry },
+        data: { resetTokenHash: tokenHash, resetExpiry: expiry, resetUsed: false },
       })
 
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const resetLink = `${baseUrl}/reset-password/${rawToken}`
+
       try {
-        const mail = getTransporter()
-        await mail.sendMail({
-          from: process.env.SMTP_FROM || process.env.SMTP_USER,
-          to: email,
-          subject: 'Código de recuperación — MiniMarket System',
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px">
-              <h2 style="color:#1e293b;margin-bottom:8px">Recuperación de contraseña</h2>
-              <p style="color:#64748b;font-size:14px">Has solicitado restablecer tu contraseña. Usa el siguiente código:</p>
-              <div style="background:#f1f5f9;border-radius:12px;padding:20px;text-align:center;margin:16px 0">
-                <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#0284c7">${codigo}</span>
-              </div>
-              <p style="color:#94a3b8;font-size:12px">Este código expira en 15 minutos. Si no solicitaste esto, ignora este mensaje.</p>
-            </div>
-          `,
+        await sendPasswordResetEmail(email, resetLink)
+        await prisma.logAcceso.create({
+          data: { usuarioId: usuario.id, accion: 'Solicitud de restablecimiento de contraseña' },
         })
       } catch {
-        // Email error is silent
+        // Error de correo silencioso — no revelar info
       }
     }
 
     return NextResponse.json({
-      message: 'Si el correo está registrado, recibirás un código de recuperación',
+      message: 'Si el correo está registrado, recibirás un enlace de recuperación',
     })
   } catch {
     return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 })

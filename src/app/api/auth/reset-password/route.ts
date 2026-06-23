@@ -1,35 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { createHash } from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, codigo, nuevaPassword } = await req.json()
+    const { token, password } = await req.json()
 
-    if (!email || !codigo || !nuevaPassword) {
-      return NextResponse.json({ message: 'email, codigo y nuevaPassword son requeridos' }, { status: 400 })
+    if (!token || !password) {
+      return NextResponse.json({ message: 'Token y contraseña requeridos' }, { status: 400 })
     }
-    if (nuevaPassword.length < 6) {
+
+    if (typeof token !== 'string' || token.length < 20) {
+      return NextResponse.json({ message: 'Enlace inválido o expirado' }, { status: 400 })
+    }
+
+    if (typeof password !== 'string' || password.length < 6) {
       return NextResponse.json({ message: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 })
     }
 
-    const usuario = await prisma.usuario.findFirst({ where: { email, activo: true } })
-    if (!usuario || !usuario.resetCode || !usuario.resetExpiry) {
-      return NextResponse.json({ message: 'Código inválido o expirado' }, { status: 400 })
-    }
-    if (usuario.resetCode !== codigo.trim()) {
-      return NextResponse.json({ message: 'Código incorrecto' }, { status: 400 })
-    }
-    if (new Date() > usuario.resetExpiry) {
-      return NextResponse.json({ message: 'El código ha expirado. Solicita uno nuevo.' }, { status: 400 })
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+
+    const usuario = await prisma.usuario.findFirst({
+      where: { resetTokenHash: tokenHash, activo: true },
+    })
+
+    if (!usuario) {
+      return NextResponse.json({ message: 'Enlace inválido o expirado' }, { status: 400 })
     }
 
-    const salt = await bcrypt.genSalt(10)
-    const passwordHash = await bcrypt.hash(nuevaPassword, salt)
+    if (usuario.resetUsed) {
+      return NextResponse.json({ message: 'Este enlace ya ha sido utilizado. Solicita uno nuevo.' }, { status: 400 })
+    }
+
+    if (!usuario.resetExpiry || new Date() > usuario.resetExpiry) {
+      return NextResponse.json({ message: 'El enlace ha expirado. Solicita uno nuevo.' }, { status: 400 })
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10)
 
     await prisma.usuario.update({
       where: { id: usuario.id },
-      data: { passwordHash, resetCode: null, resetExpiry: null },
+      data: {
+        passwordHash,
+        resetTokenHash: null,
+        resetExpiry: null,
+        resetUsed: false,
+        intentosFallidos: 0,
+        bloqueadoHasta: null,
+      },
+    })
+
+    await prisma.logAcceso.create({
+      data: { usuarioId: usuario.id, accion: 'Contraseña restablecida exitosamente' },
     })
 
     return NextResponse.json({ message: 'Contraseña restablecida exitosamente' })

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const publicRoutes = ['/login', '/recuperar-password']
+const publicRoutes = ['/login', '/recuperar-password', '/reset-password']
 const publicApiRoutes = ['/api/auth/login', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/logout', '/api/webhooks/']
 
 function isJwtValid(token: string): boolean {
@@ -22,6 +22,7 @@ export function middleware(req: NextRequest) {
 
   if (
     publicRoutes.includes(pathname) ||
+    pathname.startsWith('/reset-password') ||
     publicApiRoutes.some((route) => pathname.startsWith(route))
   ) {
     return NextResponse.next()

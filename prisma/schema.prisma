@@ -17,8 +17,9 @@ model Usuario {
   activo         Boolean   @default(true)
   intentosFallidos Int     @default(0)
   bloqueadoHasta  DateTime?
-  resetCode      String?   @db.VarChar(10)
+  resetTokenHash String?   @db.Text
   resetExpiry    DateTime?
+  resetUsed      Boolean   @default(false)
   creadoEn       DateTime  @default(now())
 
   logAccesos        LogAcceso[]
