@@ -13,8 +13,14 @@ export async function GET(req: NextRequest) {
 
   try {
     const dateFilter: Record<string, Date> = {}
-    if (desde) dateFilter.gte = new Date(desde + 'T00:00:00.000')
-    if (hasta) dateFilter.lte = new Date(hasta + 'T23:59:59.999')
+    if (desde) {
+      const [y, m, d] = desde.split('-').map(Number)
+      dateFilter.gte = new Date(Date.UTC(y, m - 1, d, 5, 0, 0, 0))
+    }
+    if (hasta) {
+      const [y, m, d] = hasta.split('-').map(Number)
+      dateFilter.lte = new Date(Date.UTC(y, m - 1, d + 1, 4, 59, 59, 999))
+    }
 
     const where = Object.keys(dateFilter).length ? { creadoEn: dateFilter } : {}
 
