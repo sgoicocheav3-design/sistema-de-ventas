@@ -146,20 +146,23 @@ export async function POST(req: NextRequest) {
       const host = req.headers.get('host');
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
       
-      const pref = await preference.create({
-        body: {
-          items: [
-            {
-              id: venta.numero,
-              title: `Venta ${venta.numero}`,
-              quantity: 1,
-              unit_price: Number(venta.total)
-            }
-          ],
-          external_reference: venta.id.toString(),
-          notification_url: `${baseUrl}/api/webhooks/mercadopago`,
-        }
-      });
+      const prefBody: any = {
+        items: [
+          {
+            id: venta.numero,
+            title: `Venta ${venta.numero}`,
+            quantity: 1,
+            unit_price: Number(venta.total)
+          }
+        ],
+        external_reference: venta.id.toString()
+      };
+
+      if (baseUrl.startsWith('https')) {
+        prefBody.notification_url = `${baseUrl}/api/webhooks/mercadopago`;
+      }
+
+      const pref = await preference.create({ body: prefBody });
       
       qrData = pref.init_point;
       pagoId = pref.id;
