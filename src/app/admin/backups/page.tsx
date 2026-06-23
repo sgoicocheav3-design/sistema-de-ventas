@@ -31,14 +31,9 @@ export default function BackupsPage() {
             </div>
 
             <p className="text-gray-500 text-sm mb-4">
-              Todos los datos del sistema (usuarios, productos, ventas, inventario, etc.) se guardan en tu base de datos de Supabase.
-              No se almacena información de negocio en el servidor de la aplicación.
+              Todos los datos del sistema (usuarios, productos, ventas, inventario, etc.) se encuentran en la base de datos de Supabase.
+              No se almacena información de negocio en la aplicación.
             </p>
-
-            <p className="text-gray-500 text-sm mb-6">
-              Los respaldos automáticos y manuales se configuran desde el panel de Supabase (Database → Backups).
-            </p>
-
             <a
               href={dashboardUrl}
               target="_blank"
