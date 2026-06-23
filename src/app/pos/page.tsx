@@ -216,6 +216,17 @@ export default function POSPage() {
     }
   }
 
+  useEffect(() => {
+    if (showReceipt && resultado) {
+      fetch(`/api/ventas/${resultado.id}/comprobante`)
+        .then((r) => r.ok && r.json())
+        .then((data) => {
+          if (data?.empresa) setEmpresaData(data.empresa)
+        })
+        .catch(() => {})
+    }
+  }, [showReceipt, resultado])
+
   if (qrModal) {
     const estadoFinal = qrEstado === 'COMPLETADA' || qrEstado === 'RECHAZADO' || qrEstado === 'CANCELADO'
 
@@ -298,16 +309,6 @@ export default function POSPage() {
     )
   }
 
-  useEffect(() => {
-    if (showReceipt && resultado) {
-      fetch(`/api/ventas/${resultado.id}/comprobante`)
-        .then((r) => r.ok && r.json())
-        .then((data) => {
-          if (data?.empresa) setEmpresaData(data.empresa)
-        })
-        .catch(() => {})
-    }
-  }, [showReceipt, resultado])
 
   if (showReceipt && resultado) {
     return (
