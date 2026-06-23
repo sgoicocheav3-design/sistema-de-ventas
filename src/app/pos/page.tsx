@@ -525,7 +525,7 @@ export default function POSPage() {
                   value={clienteId}
                   onChange={(e) => setClienteId(e.target.value)}
                   className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg outline-none text-sm"
-                  placeholder="ID Cliente (opcional)"
+                  placeholder="DNI Cliente (opcional)"
                 />
               </div>
 
