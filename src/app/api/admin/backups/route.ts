@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
 
   const projectRef = process.env.SUPABASE_PROJECT_REF
   const dashboardUrl = projectRef
-    ? `https://supabase.com/dashboard/project/${projectRef}/database/backups`
+    ? `https://supabase.com/dashboard/project/${projectRef}`
     : 'https://supabase.com/dashboard'
 
   return NextResponse.json({
