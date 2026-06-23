@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
-import { parsePagination } from '@/lib/utils'
+import { parsePagination, validatePassword } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
   const auth = withAuth(req, ['ADMIN'])
@@ -41,6 +41,11 @@ export async function POST(req: NextRequest) {
     const rolesValidos = ['ADMIN', 'VENDEDOR', 'ALMACENERO', 'GERENTE']
     if (!rolesValidos.includes(rol)) {
       return NextResponse.json({ message: `Rol inválido. Valores: ${rolesValidos.join(', ')}` }, { status: 400 })
+    }
+
+    const passwordError = validatePassword(password)
+    if (passwordError) {
+      return NextResponse.json({ message: passwordError }, { status: 400 })
     }
 
     const existe = await prisma.usuario.findUnique({ where: { email } })

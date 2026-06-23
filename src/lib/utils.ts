@@ -40,6 +40,14 @@ export function daysAgoISO(days: number): string {
   return d.toISOString().split('T')[0]
 }
 
+export function validatePassword(password: string): string | null {
+  if (password.length < 7) return 'La contraseña debe tener al menos 7 caracteres'
+  if (!/[A-Z]/.test(password)) return 'La contraseña debe contener al menos una mayúscula'
+  if (!/[a-z]/.test(password)) return 'La contraseña debe contener al menos una minúscula'
+  if (!/[0-9]/.test(password)) return 'La contraseña debe contener al menos un número'
+  return null
+}
+
 const IGV_RATE = 0.18
 const IGV_FACTOR = 1 + IGV_RATE
 

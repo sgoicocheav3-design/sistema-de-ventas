@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { createHash } from 'crypto'
+import { validatePassword } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,8 +16,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Enlace inválido o expirado' }, { status: 400 })
     }
 
-    if (typeof password !== 'string' || password.length < 6) {
-      return NextResponse.json({ message: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 })
+    if (typeof password !== 'string') {
+      return NextResponse.json({ message: 'Contraseña inválida' }, { status: 400 })
+    }
+
+    const passwordError = validatePassword(password)
+    if (passwordError) {
+      return NextResponse.json({ message: passwordError }, { status: 400 })
     }
 
     const tokenHash = createHash('sha256').update(token).digest('hex')
@@ -35,6 +41,11 @@ export async function POST(req: NextRequest) {
 
     if (!usuario.resetExpiry || new Date() > usuario.resetExpiry) {
       return NextResponse.json({ message: 'El enlace ha expirado. Solicita uno nuevo.' }, { status: 400 })
+    }
+
+    const mismaPassword = await bcrypt.compare(password, usuario.passwordHash)
+    if (mismaPassword) {
+      return NextResponse.json({ message: 'No puedes usar la misma contraseña anterior' }, { status: 400 })
     }
 
     const passwordHash = await bcrypt.hash(password, 10)
