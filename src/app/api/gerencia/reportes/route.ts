@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const dateFilter: Record<string, Date> = {}
-    if (desde) dateFilter.gte = new Date(desde)
-    if (hasta) dateFilter.lte = new Date(hasta + 'T23:59:59.999Z')
+    if (desde) dateFilter.gte = new Date(desde + 'T00:00:00.000')
+    if (hasta) dateFilter.lte = new Date(hasta + 'T23:59:59.999')
     const where = Object.keys(dateFilter).length ? { creadoEn: dateFilter } : {}
 
     const [ventas, entradas, bajas, solicitudes] = await Promise.all([

@@ -4,12 +4,23 @@ import { useState } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
 import { BarChart3, Search, FileText } from 'lucide-react'
 
+const ROWS_PER_PAGE = 10
+
 export default function ReportesPage() {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [data, setData] = useState<{ ventas: Array<Record<string, unknown>>; entradas: Array<Record<string, unknown>> } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [ventasPage, setVentasPage] = useState(0)
+  const [entradasPage, setEntradasPage] = useState(0)
+
+  const ventasData = data?.ventas ?? []
+  const entradasData = data?.entradas ?? []
+  const ventasPages = Math.max(1, Math.ceil(ventasData.length / ROWS_PER_PAGE))
+  const entradasPages = Math.max(1, Math.ceil(entradasData.length / ROWS_PER_PAGE))
+  const paginatedVentas = ventasData.slice(ventasPage * ROWS_PER_PAGE, (ventasPage + 1) * ROWS_PER_PAGE)
+  const paginatedEntradas = entradasData.slice(entradasPage * ROWS_PER_PAGE, (entradasPage + 1) * ROWS_PER_PAGE)
 
   const search = async () => {
     setLoading(true)
@@ -22,6 +33,8 @@ export default function ReportesPage() {
       if (res.ok) {
         const d = await res.json()
         setData({ ventas: d.ventas || [], entradas: d.entradas || [] })
+        setVentasPage(0)
+        setEntradasPage(0)
       } else setError('Error al obtener reportes')
     } catch {
       setError('Error de conexión')
@@ -80,7 +93,7 @@ export default function ReportesPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {data.ventas.map((v: Record<string, unknown>) => (
+                        {paginatedVentas.map((v: Record<string, unknown>) => (
                           <tr key={v.id as number} className="hover:bg-gray-50">
                             <td className="px-4 py-2 font-medium">{v.numero as string}</td>
                             <td className="px-4 py-2 text-gray-600">{new Date(v.creadoEn as string).toLocaleString()}</td>
@@ -92,6 +105,19 @@ export default function ReportesPage() {
                       </tbody>
                     </table>
                   </div>
+                  {ventasPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+                      <span className="text-xs text-gray-500">
+                        {ventasPage * ROWS_PER_PAGE + 1}–{Math.min((ventasPage + 1) * ROWS_PER_PAGE, ventasData.length)} de {ventasData.length}
+                      </span>
+                      <div className="flex gap-1">
+                        <button onClick={() => setVentasPage((p) => Math.max(0, p - 1))} disabled={ventasPage === 0}
+                          className="px-3 py-1 text-xs rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-40 transition cursor-pointer">Anterior</button>
+                        <button onClick={() => setVentasPage((p) => Math.min(ventasPages - 1, p + 1))} disabled={ventasPage >= ventasPages - 1}
+                          className="px-3 py-1 text-xs rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-40 transition cursor-pointer">Siguiente</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -112,7 +138,7 @@ export default function ReportesPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {data.entradas.map((e: Record<string, unknown>) => (
+                        {paginatedEntradas.map((e: Record<string, unknown>) => (
                           <tr key={e.id as number} className="hover:bg-gray-50">
                             <td className="px-4 py-2">{(e.producto as Record<string, string>)?.nombre}</td>
                             <td className="px-4 py-2">{(e.proveedor as Record<string, string>)?.nombre}</td>
@@ -124,6 +150,19 @@ export default function ReportesPage() {
                       </tbody>
                     </table>
                   </div>
+                  {entradasPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+                      <span className="text-xs text-gray-500">
+                        {entradasPage * ROWS_PER_PAGE + 1}–{Math.min((entradasPage + 1) * ROWS_PER_PAGE, entradasData.length)} de {entradasData.length}
+                      </span>
+                      <div className="flex gap-1">
+                        <button onClick={() => setEntradasPage((p) => Math.max(0, p - 1))} disabled={entradasPage === 0}
+                          className="px-3 py-1 text-xs rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-40 transition cursor-pointer">Anterior</button>
+                        <button onClick={() => setEntradasPage((p) => Math.min(entradasPages - 1, p + 1))} disabled={entradasPage >= entradasPages - 1}
+                          className="px-3 py-1 text-xs rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-40 transition cursor-pointer">Siguiente</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
