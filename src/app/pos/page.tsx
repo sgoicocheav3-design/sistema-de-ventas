@@ -144,7 +144,10 @@ export default function POSPage() {
       if (cat) params.set('categoria', cat)
       if (limit) params.set('limit', limit)
       const res = await fetch(`/api/almacen/productos?${params}`)
-      if (res.ok) setProductos(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setProductos(Array.isArray(data) ? data : data.productos || [])
+      }
       else setSearchError('Error al buscar productos')
     } catch {
       setSearchError('Error de conexión')

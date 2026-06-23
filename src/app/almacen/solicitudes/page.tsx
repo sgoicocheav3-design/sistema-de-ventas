@@ -38,7 +38,7 @@ export default function SolicitudesPage() {
       const res = await fetch(`/api/almacen/solicitudes?${params}`)
       if (res.ok) {
         const d = await res.json()
-        setSolicitudes(d.solicitudes); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
+        setSolicitudes(d.solicitudes || []); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
       }
       } catch { setLoadError('Error al cargar solicitudes')
       } finally { setLoading(false) }

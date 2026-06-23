@@ -38,7 +38,7 @@ export default function BajasPage() {
       const res = await fetch(`/api/almacen/bajas?${params}`)
       if (res.ok) {
         const d = await res.json()
-        setBajas(d.bajas); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
+        setBajas(d.bajas || []); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
       }
     } catch { setLoadError('Error al cargar bajas')
     } finally { setLoading(false) }

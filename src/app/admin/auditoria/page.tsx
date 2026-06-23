@@ -23,7 +23,7 @@ export default function AuditoriaPage() {
       const res = await fetch(`/api/admin/auditoria?page=${p}`)
       if (res.ok) {
         const data = await res.json()
-        setLogs(data.registros)
+        setLogs(data.registros || [])
         setTotalPages(data.totalPages)
         setPage(data.page)
       }

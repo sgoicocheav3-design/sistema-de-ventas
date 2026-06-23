@@ -42,7 +42,7 @@ export default function ProductosPage() {
       const res = await fetch(`/api/almacen/productos?${params}`)
       if (res.ok) {
         const data = await res.json()
-        setProductos(data.productos)
+        setProductos(data.productos || [])
         setTotal(data.total)
         setPage(data.page)
         setTotalPages(data.totalPages)

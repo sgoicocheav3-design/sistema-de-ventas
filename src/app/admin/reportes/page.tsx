@@ -19,8 +19,10 @@ export default function ReportesPage() {
       if (desde) params.set('desde', desde)
       if (hasta) params.set('hasta', hasta)
       const res = await fetch(`/api/admin/reportes?${params}`)
-      if (res.ok) setData(await res.json())
-      else setError('Error al obtener reportes')
+      if (res.ok) {
+        const d = await res.json()
+        setData({ ventas: d.ventas || [], entradas: d.entradas || [] })
+      } else setError('Error al obtener reportes')
     } catch {
       setError('Error de conexión')
     } finally {

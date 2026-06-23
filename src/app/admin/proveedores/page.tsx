@@ -18,7 +18,7 @@ export default function ProveedoresPage() {
 
   const fetchData = async () => {
     const res = await fetch('/api/admin/proveedores')
-    if (res.ok) setProveedores(await res.json())
+    if (res.ok) { const d = await res.json(); setProveedores(Array.isArray(d) ? d : []) }
     setLoading(false)
   }
 

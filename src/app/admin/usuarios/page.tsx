@@ -22,7 +22,7 @@ export default function UsuariosPage() {
 
   const fetchUsuarios = async () => {
     const res = await fetch('/api/admin/usuarios')
-    if (res.ok) setUsuarios(await res.json())
+    if (res.ok) { const d = await res.json(); setUsuarios(Array.isArray(d) ? d : []) }
     setLoading(false)
   }
 

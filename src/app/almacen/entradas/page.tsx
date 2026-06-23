@@ -42,7 +42,7 @@ export default function EntradasPage() {
       const res = await fetch(`/api/almacen/entradas?${params}`)
       if (res.ok) {
         const d = await res.json()
-        setEntradas(d.entradas); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
+        setEntradas(d.entradas || []); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
       }
       } catch { setLoadError('Error al cargar entradas')
       } finally { setLoading(false) }
