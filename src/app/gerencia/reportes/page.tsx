@@ -11,9 +11,11 @@ export default function GerenciaReportesPage() {
   const [proveedores, setProveedores] = useState<Array<{ id: number; nombre: string }>>([])
   const [data, setData] = useState<Record<string, Array<Record<string, unknown>>> | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const search = async () => {
     setLoading(true)
+    setError('')
     try {
       const params = new URLSearchParams()
       if (desde) params.set('desde', desde)
@@ -24,8 +26,8 @@ export default function GerenciaReportesPage() {
         const d = await res.json()
         setData(d)
         if (d.proveedores) setProveedores(d.proveedores)
-      }
-    } catch { /* ignore */
+      } else setError('Error al obtener reportes')
+    } catch { setError('Error de conexión')
     } finally { setLoading(false) }
   }
 
@@ -51,6 +53,10 @@ export default function GerenciaReportesPage() {
               <Search size={16} /> {loading ? 'Buscando...' : 'Buscar'}
             </button>
           </div>
+
+          {error && (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200 mb-6">{error}</div>
+          )}
 
           {data && (
             <div className="space-y-6">

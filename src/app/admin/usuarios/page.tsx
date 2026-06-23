@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
-import { Plus, Edit2, Trash2, User } from 'lucide-react'
+import { Plus, Edit2, Trash2, User, X } from 'lucide-react'
 
 interface Usuario {
   id: number; nombre: string; email: string; rol: string; creadoEn: string
@@ -72,20 +72,23 @@ export default function UsuariosPage() {
 
         <main className="flex-1 p-6 overflow-y-auto">
           {showForm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-                <h2 className="text-lg font-bold mb-4">{editId ? 'Editar' : 'Nuevo'} Usuario</h2>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold">{editId ? 'Editar' : 'Nuevo'} Usuario</h2>
+                  <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded cursor-pointer"><X size={20} /></button>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Nombre" required />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Nombre" required />
                   <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Email" required />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Email" required />
                   {!editId && (
                     <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Contraseña" required />
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Contraseña" required />
                   )}
                   <select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none">
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                     {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                   {error && <div className="text-red-600 text-sm">{error}</div>}
@@ -104,7 +107,8 @@ export default function UsuariosPage() {
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
           ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
@@ -116,27 +120,35 @@ export default function UsuariosPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {usuarios.map((u) => (
+                  {usuarios.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-12 text-center text-gray-500">No hay usuarios registrados</td>
+                    </tr>
+                  ) : (
+                  usuarios.map((u) => (
                     <tr key={u.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User size={16} className="text-blue-600" />
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+                            <User size={16} className="text-blue-600" />
+                          </div>
+                          <span className="font-medium">{u.nombre}</span>
                         </div>
-                        <span className="font-medium">{u.nombre}</span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{u.email}</td>
                       <td className="px-4 py-3">
                         <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">{u.rol}</span>
                       </td>
                       <td className="px-4 py-3 text-gray-500 text-sm">{new Date(u.creadoEn).toLocaleDateString()}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
                         <button onClick={() => openEdit(u)} className="p-1.5 hover:bg-gray-100 rounded cursor-pointer"><Edit2 size={16} /></button>
                         <button onClick={() => handleDelete(u.id)} className="p-1.5 hover:bg-red-50 text-red-500 rounded cursor-pointer"><Trash2 size={16} /></button>
                       </td>
                     </tr>
-                  ))}
+                  )                  ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </main>

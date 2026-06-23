@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
-import { Package, Plus, Edit2, Search, Filter } from 'lucide-react'
+import { Package, Plus, Edit2, Search, Filter, X } from 'lucide-react'
 
 interface Categoria {
   id: number; nombre: string
@@ -27,9 +27,10 @@ export default function ProductosPage() {
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '0' })
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
-    fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => {})
+    fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => setLoadError('Error al cargar categorías'))
   }, [])
 
   const fetchProductos = useCallback(async (p: number) => {
@@ -47,7 +48,7 @@ export default function ProductosPage() {
         setTotalPages(data.totalPages)
       }
     } catch {
-      // ignore
+      setLoadError('Error al cargar productos')
     } finally {
       setLoading(false)
     }
@@ -95,26 +96,29 @@ export default function ProductosPage() {
 
         <main className="flex-1 p-6 overflow-y-auto">
           {showForm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-                <h2 className="text-lg font-bold mb-4">{editId ? 'Editar' : 'Nuevo'} Producto</h2>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold">{editId ? 'Editar' : 'Nuevo'} Producto</h2>
+                  <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded cursor-pointer"><X size={20} /></button>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Código" required />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Código" required />
                   <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Nombre" required />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Nombre" required />
                   <input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Marca" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Marca" />
                   <select value={form.categoriaId} onChange={(e) => setForm({ ...form, categoriaId: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none">
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                     <option value="">Sin categoría</option>
                     {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </select>
                   <input type="number" step="0.01" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Precio" required />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Precio" required />
                   {editId && (
                     <input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                      className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Stock" />
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Stock" />
                   )}
                   {error && <div className="text-red-600 text-sm">{error}</div>}
                   <div className="flex gap-3">
@@ -144,9 +148,12 @@ export default function ProductosPage() {
 
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
+          ) : loadError ? (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">{loadError}</div>
           ) : (
             <>
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
@@ -160,7 +167,9 @@ export default function ProductosPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {productos.map((p) => (
+                    {productos.length === 0 ? (
+                      <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-500">No hay productos registrados</td></tr>
+                    ) : productos.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-gray-600 text-sm">{p.codigo}</td>
                         <td className="px-4 py-3 font-medium">{p.nombre}</td>
@@ -179,6 +188,7 @@ export default function ProductosPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
 
               <div className="flex items-center justify-between mt-4 text-sm text-gray-500">

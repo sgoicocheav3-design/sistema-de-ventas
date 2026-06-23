@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [chartData, setChartData] = useState<Array<{ mes: string; ventas: number; compras: number }>>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,8 +58,9 @@ export default function DashboardPage() {
           const chart = await res2.json()
           setChartData(chart.meses || [])
         }
+        if (!res1.ok && !res2.ok) setError('Error al cargar datos del dashboard')
       } catch {
-        // show empty state
+        setError('Error de conexión al cargar datos')
       } finally {
         setLoading(false)
       }
@@ -85,9 +87,11 @@ export default function DashboardPage() {
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
             </div>
+          ) : error ? (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>
           ) : (
             <div className="space-y-6">
-              {data && (
+              {data ? (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card title="Ventas Hoy" value={data.ventasHoy} icon={ShoppingCart} color="bg-blue-600" currency />
@@ -113,9 +117,11 @@ export default function DashboardPage() {
                     <Card title="Total Usuarios" value={data.totalUsuarios} icon={Users} color="bg-amber-600" />
                   </div>
                 </>
+              ) : (
+                <div className="text-center py-12 text-gray-500">No se pudieron cargar los datos</div>
               )}
 
-              {chartData.length > 0 && (
+              {chartData.length > 0 ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Ventas del Año</h3>
                   <ResponsiveContainer width="100%" height={320}>
@@ -130,6 +136,12 @@ export default function DashboardPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+              ) : (
+                !loading && !error && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center text-gray-500">
+                    No hay datos de ventas disponibles
+                  </div>
+                )
               )}
             </div>
           )}

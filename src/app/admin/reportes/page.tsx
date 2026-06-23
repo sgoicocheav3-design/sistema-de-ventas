@@ -9,17 +9,20 @@ export default function ReportesPage() {
   const [hasta, setHasta] = useState('')
   const [data, setData] = useState<{ ventas: Array<Record<string, unknown>>; entradas: Array<Record<string, unknown>> } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const search = async () => {
     setLoading(true)
+    setError('')
     try {
       const params = new URLSearchParams()
       if (desde) params.set('desde', desde)
       if (hasta) params.set('hasta', hasta)
       const res = await fetch(`/api/admin/reportes?${params}`)
       if (res.ok) setData(await res.json())
+      else setError('Error al obtener reportes')
     } catch {
-      // ignore
+      setError('Error de conexión')
     } finally {
       setLoading(false)
     }
@@ -51,6 +54,10 @@ export default function ReportesPage() {
               <Search size={16} /> {loading ? 'Buscando...' : 'Buscar'}
             </button>
           </div>
+
+          {error && (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200 mb-6">{error}</div>
+          )}
 
           {data && (
             <div className="space-y-6">

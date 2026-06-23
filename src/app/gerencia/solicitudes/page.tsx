@@ -14,16 +14,18 @@ interface Solicitud {
 export default function GerenciaSolicitudesPage() {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   const fetchData = async () => {
     setLoading(true)
+    setError('')
     try {
       const res = await fetch('/api/gerencia/solicitudes?estado=PENDIENTE')
       if (res.ok) {
         const d = await res.json()
         setSolicitudes(d.solicitudes || [])
-      }
-    } catch { /* ignore */
+      } else setError('Error al cargar solicitudes')
+    } catch { setError('Error de conexión')
     } finally { setLoading(false) }
   }
 
@@ -48,6 +50,8 @@ export default function GerenciaSolicitudesPage() {
         <main className="flex-1 p-6 overflow-y-auto">
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
+          ) : error ? (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>
           ) : solicitudes.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <UserCheck className="mx-auto mb-2" size={48} />

@@ -13,6 +13,7 @@ interface Solicitud {
 export default function RecepcionesPage() {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [proveedores, setProveedores] = useState<Array<{ id: number; nombre: string }>>([])
   const [recepcionando, setRecepcionando] = useState<{ solicitudId: number; proveedorId: string; cantidad: string } | null>(null)
   const [error, setError] = useState('')
@@ -22,7 +23,7 @@ export default function RecepcionesPage() {
       fetch('/api/almacen/solicitudes?estado=APROBADA').then((r) => r.ok && r.json())
         .then((d) => setSolicitudes(d.solicitudes || [])),
       fetch('/api/admin/proveedores').then((r) => r.ok && r.json()).then(setProveedores),
-    ]).catch(() => {}).finally(() => setLoading(false))
+    ]).catch(() => setLoadError('Error al cargar datos')).finally(() => setLoading(false))
   }, [])
 
   const handleRecepcionar = async (solicitudId: number) => {
@@ -54,6 +55,8 @@ export default function RecepcionesPage() {
         <main className="flex-1 p-6 overflow-y-auto">
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
+          ) : loadError ? (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">{loadError}</div>
           ) : solicitudes.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <Warehouse className="mx-auto mb-2" size={48} />

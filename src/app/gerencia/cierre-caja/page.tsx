@@ -24,12 +24,14 @@ interface CierreData {
 export default function CierreCajaPage() {
   const [data, setData] = useState<CierreData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/gerencia/cierre-caja').then((r) => r.ok && r.json()).then((d) => {
-      if (d) setData(d)
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    fetch('/api/gerencia/cierre-caja')
+      .then((r) => r.ok ? r.json() : Promise.reject('Error al cargar'))
+      .then((d) => { if (d) setData(d) })
+      .catch(() => setError('Error al cargar datos de cierre de caja'))
+      .finally(() => setLoading(false))
   }, [])
 
   const metodoIcon: Record<string, React.ElementType> = {
@@ -53,6 +55,8 @@ export default function CierreCajaPage() {
         <main className="flex-1 p-6 overflow-y-auto">
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
+          ) : error ? (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>
           ) : data ? (
             <div className="space-y-6">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

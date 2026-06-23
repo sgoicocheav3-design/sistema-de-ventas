@@ -19,12 +19,14 @@ const Card = ({ title, value, icon: Icon, color, currency }: {
 export default function GerenciaDashboardPage() {
   const [data, setData] = useState<Record<string, number> | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/gerencia/dashboard').then((r) => r.ok && r.json()).then((d) => {
-      if (d) setData(d)
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    fetch('/api/gerencia/dashboard')
+      .then((r) => r.ok ? r.json() : Promise.reject('Error al cargar'))
+      .then((d) => { if (d) setData(d) })
+      .catch(() => setError('Error al cargar datos del dashboard'))
+      .finally(() => setLoading(false))
   }, [])
 
   return (
@@ -39,6 +41,8 @@ export default function GerenciaDashboardPage() {
         <main className="flex-1 p-6 overflow-y-auto">
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
+          ) : error ? (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>
           ) : data ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card title="Ventas del Mes" value={data.totalVentas} icon={ShoppingCart} color="bg-blue-600" />

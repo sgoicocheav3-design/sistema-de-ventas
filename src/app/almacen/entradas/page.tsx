@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
-import { ClipboardList, Plus, Search } from 'lucide-react'
+import { ClipboardList, Plus, Search, X } from 'lucide-react'
 
 interface Entrada {
   id: number; cantidad: number; creadoEn: string
@@ -22,6 +22,7 @@ export default function EntradasPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ productoId: '', proveedorId: '', cantidad: '' })
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [productos, setProductos] = useState<Array<{ id: number; nombre: string }>>([])
   const [proveedores, setProveedores] = useState<Array<{ id: number; nombre: string }>>([])
 
@@ -29,7 +30,7 @@ export default function EntradasPage() {
     Promise.all([
       fetch('/api/almacen/productos?limit=500').then((r) => r.ok && r.json()).then((d) => setProductos(d.productos || [])),
       fetch('/api/admin/proveedores').then((r) => r.ok && r.json()).then(setProveedores),
-    ]).catch(() => {})
+    ]).catch(() => setLoadError('Error al cargar datos iniciales'))
   }, [])
 
   const fetchData = async (p: number) => {
@@ -43,8 +44,8 @@ export default function EntradasPage() {
         const d = await res.json()
         setEntradas(d.entradas); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
       }
-    } catch { /* ignore */
-    } finally { setLoading(false) }
+      } catch { setLoadError('Error al cargar entradas')
+      } finally { setLoading(false) }
   }
 
   useEffect(() => { fetchData(1) }, [])
@@ -75,22 +76,25 @@ export default function EntradasPage() {
 
         <main className="flex-1 p-6 overflow-y-auto">
           {showForm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-                <h2 className="text-lg font-bold mb-4">Nueva Entrada</h2>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold">Nueva Entrada</h2>
+                  <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded cursor-pointer"><X size={20} /></button>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <select value={form.productoId} onChange={(e) => setForm({ ...form, productoId: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" required>
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required>
                     <option value="">Seleccionar producto</option>
                     {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                   </select>
                   <select value={form.proveedorId} onChange={(e) => setForm({ ...form, proveedorId: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" required>
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required>
                     <option value="">Seleccionar proveedor</option>
                     {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                   </select>
                   <input type="number" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Cantidad" min={1} required />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Cantidad" min={1} required />
                   {error && <div className="text-red-600 text-sm">{error}</div>}
                   <div className="flex gap-3">
                     <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 cursor-pointer">Registrar</button>
@@ -117,8 +121,11 @@ export default function EntradasPage() {
 
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
+          ) : loadError ? (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">{loadError}</div>
           ) : (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
@@ -130,7 +137,9 @@ export default function EntradasPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {entradas.map((e) => (
+                  {entradas.length === 0 ? (
+                    <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-500">No hay entradas registradas</td></tr>
+                  ) : entradas.map((e) => (
                     <tr key={e.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">{e.producto.nombre}</td>
                       <td className="px-4 py-3 text-gray-600">{e.proveedor.nombre}</td>
@@ -141,6 +150,7 @@ export default function EntradasPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </main>

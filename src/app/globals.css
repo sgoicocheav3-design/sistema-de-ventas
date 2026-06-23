@@ -17,6 +17,15 @@ body {
   box-sizing: border-box;
 }
 
+input:invalid, select:invalid, textarea:invalid {
+  border-color: #ef4444;
+}
+
+input:focus:invalid, select:focus:invalid, textarea:focus:invalid {
+  --tw-ring-color: #ef4444;
+  border-color: #ef4444;
+}
+
 .scrollbar-pos::-webkit-scrollbar {
   width: 8px;
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
 import ComprobantePago from '@/components/ComprobantePago'
-import { Search, Plus, Minus, Trash2, ShoppingCart, Printer, X, User, FileText } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, Printer, X, User, FileText, Package } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { calcularTotalesConIgvIncluido } from '@/lib/utils'
 import type { VentaData } from '@/components/types'
@@ -45,6 +45,8 @@ export default function POSPage() {
   const [qrStatusDetail, setQrStatusDetail] = useState<string | null>(null)
   const [qrError, setQrError] = useState<string | null>(null)
   const [categorias, setCategorias] = useState<Array<{ id: number; nombre: string }>>([])
+  const [searchError, setSearchError] = useState('')
+  const [submitError, setSubmitError] = useState('')
   const receiptRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const mountedRef = useRef(true)
@@ -135,15 +137,17 @@ export default function POSPage() {
 
   const search = useCallback(async (query: string, cat: string, limit: string) => {
     setSearching(true)
+    setSearchError('')
     try {
       const params = new URLSearchParams()
       if (query.trim()) params.set('q', query)
       if (cat) params.set('categoria', cat)
       if (limit) params.set('limit', limit)
-      const res = await fetch(`/api/ventas?${params}`)
+      const res = await fetch(`/api/almacen/productos?${params}`)
       if (res.ok) setProductos(await res.json())
+      else setSearchError('Error al buscar productos')
     } catch {
-      // ignore
+      setSearchError('Error de conexión')
     } finally {
       setSearching(false)
     }
@@ -186,6 +190,7 @@ export default function POSPage() {
   const handleSubmit = async () => {
     if (carrito.length === 0) return
     setSubmitting(true)
+    setSubmitError('')
     try {
       const res = await fetch('/api/ventas', {
         method: 'POST',
@@ -210,7 +215,7 @@ export default function POSPage() {
       setCarrito([])
       setMontoRecibido('')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al procesar venta')
+      setSubmitError(err instanceof Error ? err.message : 'Error al procesar venta')
     } finally {
       setSubmitting(false)
     }
@@ -391,6 +396,10 @@ export default function POSPage() {
               </select>
             </div>
 
+            {searchError && (
+              <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg border border-red-200 mb-4">{searchError}</div>
+            )}
+
             {searching ? (
               <div className="flex justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
@@ -517,6 +526,10 @@ export default function POSPage() {
                 />
               </div>
 
+              {submitError && (
+                <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg border border-red-200">{submitError}</div>
+              )}
+
               <button
                 onClick={handleSubmit}
                 disabled={carrito.length === 0 || submitting || (metodoPago === 'EFECTIVO' && recibido < total)}
@@ -532,10 +545,3 @@ export default function POSPage() {
   )
 }
 
-function Package(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-    </svg>
-  )
-}

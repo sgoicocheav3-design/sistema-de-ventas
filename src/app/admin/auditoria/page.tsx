@@ -61,11 +61,15 @@ export default function AuditoriaPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {logs.map((l) => (
+                    {logs.length === 0 ? (
+                      <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-500">No hay registros de auditoría</td></tr>
+                    ) : logs.map((l) => (
                       <tr key={l.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 flex items-center gap-2">
-                          <User size={14} className="text-gray-400" />
-                          {l.usuario?.nombre || 'Sistema'}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <User size={14} className="text-gray-400 shrink-0" />
+                            {l.usuario?.nombre || 'Sistema'}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{l.usuario?.rol || '-'}</span>

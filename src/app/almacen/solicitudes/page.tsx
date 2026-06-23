@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
-import { ClipboardCheck, Plus, Search } from 'lucide-react'
+import { ClipboardCheck, Plus, Search, X } from 'lucide-react'
 
 interface Solicitud {
   id: number; cantidad: number; estado: string; creadoEn: string
@@ -23,11 +23,12 @@ export default function SolicitudesPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ productoId: '', cantidad: '' })
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [productos, setProductos] = useState<Array<{ id: number; nombre: string; stock: number }>>([])
 
   useEffect(() => {
     fetch('/api/almacen/productos?limit=500').then((r) => r.ok && r.json())
-      .then((d) => setProductos(d.productos || [])).catch(() => {})
+      .then((d) => setProductos(d.productos || [])).catch(() => setLoadError('Error al cargar datos'))
   }, [])
 
   const fetchData = async (p: number) => {
@@ -39,8 +40,8 @@ export default function SolicitudesPage() {
         const d = await res.json()
         setSolicitudes(d.solicitudes); setTotal(d.total); setPage(d.page); setTotalPages(d.totalPages)
       }
-    } catch { /* ignore */
-    } finally { setLoading(false) }
+      } catch { setLoadError('Error al cargar solicitudes')
+      } finally { setLoading(false) }
   }
 
   useEffect(() => { fetchData(1) }, [estado])
@@ -72,17 +73,20 @@ export default function SolicitudesPage() {
 
         <main className="flex-1 p-6 overflow-y-auto">
           {showForm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-                <h2 className="text-lg font-bold mb-4">Nueva Solicitud</h2>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold">Nueva Solicitud</h2>
+                  <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded cursor-pointer"><X size={20} /></button>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <select value={form.productoId} onChange={(e) => setForm({ ...form, productoId: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" required>
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required>
                     <option value="">Seleccionar producto</option>
                     {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>)}
                   </select>
                   <input type="number" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })}
-                    className="w-full px-3 py-2.5 border rounded-lg outline-none" placeholder="Cantidad solicitada" min={1} required />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Cantidad solicitada" min={1} required />
                   {error && <div className="text-red-600 text-sm">{error}</div>}
                   <div className="flex gap-3">
                     <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 cursor-pointer">Solicitar</button>
@@ -105,8 +109,11 @@ export default function SolicitudesPage() {
 
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
+          ) : loadError ? (
+            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">{loadError}</div>
           ) : (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
@@ -118,7 +125,9 @@ export default function SolicitudesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {solicitudes.map((s) => (
+                  {solicitudes.length === 0 ? (
+                    <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-500">No hay solicitudes {estado.toLowerCase()}</td></tr>
+                  ) : solicitudes.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">{s.producto.nombre}</td>
                       <td className="px-4 py-3 text-right font-medium">{Number(s.cantidad)}</td>
@@ -136,6 +145,7 @@ export default function SolicitudesPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </main>
