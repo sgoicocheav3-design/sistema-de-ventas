@@ -26,14 +26,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (auth instanceof NextResponse) return auth
 
   try {
-    const { id } = await params
+    const { id: idStr } = await params
+    const id = parseInt(idStr)
+    if (isNaN(id) || id <= 0) {
+      return NextResponse.json({ message: 'ID de producto inválido' }, { status: 400 })
+    }
+
     const body = await req.json()
+
+    const productoActual = await prisma.producto.findUnique({
+      where: { id },
+      include: { categoria: { select: { id: true, nombre: true } } },
+    })
+    if (!productoActual) {
+      return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 })
+    }
+
     const data: Record<string, unknown> = {}
 
     if (body.nombre !== undefined) {
       const nombreNorm = body.nombre.trim().replace(/\s+/g, ' ')
       const existeNombre = await prisma.producto.findFirst({
-        where: { nombre: { equals: nombreNorm, mode: 'insensitive' }, activo: true, id: { not: parseInt(id) } },
+        where: { nombre: { equals: nombreNorm, mode: 'insensitive' }, activo: true, id: { not: id } },
       })
       if (existeNombre) {
         return NextResponse.json({ message: `Ya existe un producto con el nombre "${nombreNorm}"` }, { status: 409 })
@@ -65,7 +79,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const producto = await prisma.producto.update({
-      where: { id: parseInt(id) },
+      where: { id },
       data,
       include: { categoria: { select: { id: true, nombre: true } } },
     })

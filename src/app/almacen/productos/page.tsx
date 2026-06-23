@@ -82,10 +82,14 @@ export default function ProductosPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
     if (!validateForm()) return
+    if (editId !== null && typeof editId !== 'number') {
+      setError('Error interno: ID de producto inválido'); return
+    }
     const url = editId ? `/api/almacen/productos/${editId}` : '/api/almacen/productos'
     const method = editId ? 'PUT' : 'POST'
     const body: Record<string, string> = { ...form }
     if (body.stock === '') body.stock = '0'
+    console.log('[Productos] handleSubmit →', { url, method, editId, body })
     const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     const data = await res.json()
     if (!res.ok) { setError(data.message); return }
