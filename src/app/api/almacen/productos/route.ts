@@ -51,6 +51,20 @@ export async function GET(req: NextRequest) {
   }
 }
 
+function validateStock(value: unknown): { valid: false; message: string } | { valid: true; value: number } {
+  if (value === undefined || value === null || value === '') {
+    return { valid: false, message: 'El stock es requerido' }
+  }
+  const num = Number(value)
+  if (!Number.isInteger(num)) {
+    return { valid: false, message: 'El stock debe ser un número entero' }
+  }
+  if (num < 0) {
+    return { valid: false, message: 'El stock no puede ser negativo' }
+  }
+  return { valid: true, value: num }
+}
+
 export async function POST(req: NextRequest) {
   const auth = withAuth(req, ['ADMIN', 'ALMACENERO'])
   if (auth instanceof NextResponse) return auth
@@ -59,25 +73,35 @@ export async function POST(req: NextRequest) {
     const { codigo, nombre, marca, categoriaId, precio, stock } = await req.json()
 
     if (!codigo || !nombre || !precio) {
-      return NextResponse.json({ message: 'codigo, nombre y precio son requeridos' }, { status: 400 })
+      return NextResponse.json({ message: 'Código, nombre y precio son requeridos' }, { status: 400 })
     }
     if (isNaN(Number(precio)) || Number(precio) <= 0) {
       return NextResponse.json({ message: 'El precio debe ser un número positivo' }, { status: 400 })
     }
 
-    const existe = await prisma.producto.findUnique({ where: { codigo } })
-    if (existe) {
+    const stockResult = validateStock(stock)
+    if (!stockResult.valid) {
+      return NextResponse.json({ message: stockResult.message }, { status: 400 })
+    }
+
+    const existeCodigo = await prisma.producto.findUnique({ where: { codigo } })
+    if (existeCodigo) {
       return NextResponse.json({ message: `Ya existe un producto con código "${codigo}"` }, { status: 409 })
+    }
+
+    const existeNombre = await prisma.producto.findFirst({ where: { nombre: nombre.trim(), activo: true } })
+    if (existeNombre) {
+      return NextResponse.json({ message: `Ya existe un producto con el nombre "${nombre.trim()}"` }, { status: 409 })
     }
 
     const producto = await prisma.producto.create({
       data: {
         codigo,
-        nombre,
+        nombre: nombre.trim(),
         marca: marca || null,
         categoriaId: categoriaId ? parseInt(categoriaId) : null,
         precio: Number(precio),
-        stock: stock !== undefined ? parseInt(stock) : 0,
+        stock: stockResult.value,
       },
       include: { categoria: { select: { id: true, nombre: true } } },
     })

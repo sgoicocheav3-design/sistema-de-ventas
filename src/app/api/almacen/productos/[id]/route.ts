@@ -30,9 +30,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json()
     const data: Record<string, unknown> = {}
 
-    if (body.nombre !== undefined) data.nombre = body.nombre
+    if (body.nombre !== undefined) {
+      const existeNombre = await prisma.producto.findFirst({
+        where: { nombre: body.nombre.trim(), activo: true, id: { not: parseInt(id) } },
+      })
+      if (existeNombre) {
+        return NextResponse.json({ message: `Ya existe un producto con el nombre "${body.nombre.trim()}"` }, { status: 409 })
+      }
+      data.nombre = body.nombre.trim()
+    }
     if (body.marca !== undefined) data.marca = body.marca
-    if (body.stock !== undefined) data.stock = parseInt(body.stock)
+    if (body.stock !== undefined) {
+      const stockNum = Number(body.stock)
+      if (!Number.isInteger(stockNum)) {
+        return NextResponse.json({ message: 'El stock debe ser un número entero' }, { status: 400 })
+      }
+      if (stockNum < 0) {
+        return NextResponse.json({ message: 'El stock no puede ser negativo' }, { status: 400 })
+      }
+      data.stock = stockNum
+    }
     if (body.activo !== undefined) data.activo = body.activo
     if (body.categoriaId !== undefined) data.categoriaId = parseInt(body.categoriaId)
     if (body.precio !== undefined) {

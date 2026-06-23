@@ -27,8 +27,9 @@ export default function ProductosPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
-  const [form, setForm] = useState({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '0' })
+  const [form, setForm] = useState({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '' })
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
@@ -64,18 +65,40 @@ export default function ProductosPage() {
   const handlePageChange = (p: number) => fetchProductos(p, limit)
   const handleLimitChange = (l: number) => { setLimit(l); fetchProductos(1, l) }
 
+  const validateForm = (): boolean => {
+    const errs: Record<string, string> = {}
+    const stockVal = form.stock.trim()
+    if (stockVal === '') {
+      errs.stock = 'El stock es requerido'
+    } else {
+      const stockNum = Number(stockVal)
+      if (!Number.isInteger(stockNum)) errs.stock = 'El stock debe ser un número entero'
+      else if (stockNum < 0) errs.stock = 'El stock no puede ser negativo'
+    }
+    setFieldErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
+    if (!validateForm()) return
     const url = editId ? `/api/almacen/productos/${editId}` : '/api/almacen/productos'
     const method = editId ? 'PUT' : 'POST'
     const body: Record<string, string> = { ...form }
-    if (!editId && body.stock === '') body.stock = '0'
+    if (body.stock === '') body.stock = '0'
     const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     const data = await res.json()
     if (!res.ok) { setError(data.message); return }
     setShowForm(false); setEditId(null)
-    setForm({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '0' })
+    setForm({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '' })
+    setFieldErrors({})
     fetchProductos(1, limit)
+  }
+
+  const openNew = () => {
+    setShowForm(true); setEditId(null)
+    setForm({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '' })
+    setError(''); setFieldErrors({})
   }
 
   const openEdit = (p: Producto) => {
@@ -93,7 +116,7 @@ export default function ProductosPage() {
         <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
           <HeaderToggle />
           <h1 className="text-xl font-bold text-gray-800">Productos</h1>
-          <button onClick={() => { setShowForm(true); setEditId(null); setForm({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '0' }) }}
+          <button onClick={openNew}
             className="ml-auto flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition cursor-pointer">
             <Plus size={18} /> Nuevo Producto
           </button>
@@ -108,23 +131,43 @@ export default function ProductosPage() {
                   <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded cursor-pointer"><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Código" required />
-                  <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Nombre" required />
-                  <input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Marca" />
-                  <select value={form.categoriaId} onChange={(e) => setForm({ ...form, categoriaId: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                    <option value="">Sin categoría</option>
-                    {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
-                  <input type="number" step="0.01" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Precio" required />
-                  {editId && (
-                    <input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Stock" />
-                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
+                    <input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                    <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+                    <input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                    <select value={form.categoriaId} onChange={(e) => setForm({ ...form, categoriaId: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                      <option value="">Sin categoría</option>
+                      {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
+                    <input type="number" step="0.01" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{editId ? 'Stock' : 'Stock inicial'}</label>
+                    <input type="number" value={form.stock} onChange={(e) => {
+                      setForm({ ...form, stock: e.target.value })
+                      if (fieldErrors.stock) setFieldErrors({ ...fieldErrors, stock: '' })
+                    }}
+                      className={`w-full px-3 py-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${fieldErrors.stock ? 'border-red-500' : 'border-gray-300'}`} />
+                    {fieldErrors.stock && <p className="text-red-600 text-sm mt-1">{fieldErrors.stock}</p>}
+                  </div>
                   {error && <div className="text-red-600 text-sm">{error}</div>}
                   <div className="flex gap-3">
                     <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 cursor-pointer">
