@@ -42,17 +42,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 })
     }
 
+    const normalizar = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase()
+
     const data: Record<string, unknown> = {}
 
     if (body.nombre !== undefined) {
-      const nombreNorm = body.nombre.trim().replace(/\s+/g, ' ')
-      const existeNombre = await prisma.producto.findFirst({
-        where: { nombre: { equals: nombreNorm, mode: 'insensitive' }, activo: true, id: { not: id } },
-      })
-      if (existeNombre) {
-        return NextResponse.json({ message: `Ya existe un producto con el nombre "${nombreNorm}"` }, { status: 409 })
+      const nombreNorm = normalizar(body.nombre)
+      const nombreActualNorm = normalizar(productoActual.nombre)
+      if (nombreNorm !== nombreActualNorm) {
+        const existeNombre = await prisma.producto.findFirst({
+          where: { nombre: { equals: nombreNorm, mode: 'insensitive' }, activo: true, id: { not: id } },
+        })
+        if (existeNombre) {
+          return NextResponse.json({ message: `Ya existe un producto con el nombre "${nombreNorm}"` }, { status: 409 })
+        }
       }
-      data.nombre = nombreNorm
+      data.nombre = body.nombre.trim().replace(/\s+/g, ' ')
     }
     if (body.marca !== undefined) data.marca = body.marca
     if (body.stock !== undefined) {
