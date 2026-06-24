@@ -149,10 +149,19 @@ export default function ComprobantePago({ venta, empresa, onVolver, onNuevaVenta
             )}
             <p className="text-right"><span className="font-semibold">Estado:</span> {venta.estado === 'COMPLETADA' ? 'PAGADO' : venta.estado}</p>
             {venta.cliente ? (
-              <p className="col-span-2">
-                <span className="font-semibold">Cliente:</span> {venta.cliente.nombre}
-                {venta.cliente.dni ? ` (DNI: ${venta.cliente.dni})` : ''}
-              </p>
+              <>
+                <p className="col-span-2">
+                  <span className="font-semibold">Cliente:</span> {venta.cliente.nombre}
+                </p>
+                <p className="col-span-2">
+                  <span className="font-semibold">{venta.cliente.dni?.length === 11 ? 'RUC' : 'DNI'}:</span> {venta.cliente.dni}
+                </p>
+                {venta.cliente.direccion && (
+                  <p className="col-span-2">
+                    <span className="font-semibold">Dirección:</span> {venta.cliente.direccion}
+                  </p>
+                )}
+              </>
             ) : (
               <p className="col-span-2 text-gray-500"><span className="font-semibold">Cliente:</span> Cliente general</p>
             )}

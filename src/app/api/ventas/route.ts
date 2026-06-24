@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
               include: { producto: { select: { nombre: true, marca: true } } },
             },
             usuario: { select: { id: true, nombre: true } },
-            cliente: { select: { id: true, dni: true, nombre: true } },
+          cliente: { select: { id: true, dni: true, nombre: true, direccion: true } },
           },
           orderBy: { creadoEn: 'desc' },
           skip,
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
 
   try {
-    const { items, metodoPago, montoRecibido, clienteId } = await req.json()
+    const { items, metodoPago, montoRecibido, clienteId, dniCliente, rucCliente, razonSocial, direccion } = await req.json()
 
     if (!items?.length) {
       return NextResponse.json({ message: 'El carrito no puede estar vacío' }, { status: 400 })
@@ -117,6 +117,31 @@ export async function POST(req: NextRequest) {
     const metodosValidos = ['EFECTIVO', 'YAPE']
     if (!metodosValidos.includes(metodoPago)) {
       return NextResponse.json({ message: 'Método de pago inválido' }, { status: 400 })
+    }
+
+    let resolvedClienteId = clienteId ? parseInt(clienteId) : null
+    if (dniCliente && !resolvedClienteId) {
+      let cliente = await prisma.cliente.findUnique({ where: { dni: dniCliente } })
+      if (!cliente) {
+        cliente = await prisma.cliente.create({
+          data: { dni: dniCliente, nombre: `Cliente ${dniCliente}` },
+        })
+      }
+      resolvedClienteId = cliente.id
+    }
+    if (rucCliente && razonSocial && !resolvedClienteId) {
+      let cliente = await prisma.cliente.findUnique({ where: { dni: rucCliente } })
+      if (!cliente) {
+        cliente = await prisma.cliente.create({
+          data: { dni: rucCliente, nombre: razonSocial, direccion: direccion || null },
+        })
+      } else {
+        cliente = await prisma.cliente.update({
+          where: { id: cliente.id },
+          data: { nombre: razonSocial, direccion: direccion || null },
+        })
+      }
+      resolvedClienteId = cliente.id
     }
 
     const isMP = metodoPago === 'YAPE'
@@ -163,7 +188,7 @@ export async function POST(req: NextRequest) {
         data: {
           numero,
           usuarioId: auth.id,
-          clienteId: clienteId ? parseInt(clienteId) : null,
+          clienteId: resolvedClienteId,
           subtotal,
           igv,
           total,
@@ -236,7 +261,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ...venta, qrData, pagoId }, { status: 201 })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Venta Error Detail:", err);
     const message = err?.message || 'Error al procesar la venta'
     const status = message.includes('Stock') || message.includes('Monto') ? 400 : 500

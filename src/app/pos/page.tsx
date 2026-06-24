@@ -51,6 +51,9 @@ export default function POSPage() {
   const [submitError, setSubmitError] = useState('')
   const [comprobante, setComprobante] = useState('BOLETA_SIMPLE')
   const [clienteDni, setClienteDni] = useState('')
+  const [facturaRuc, setFacturaRuc] = useState('')
+  const [facturaRazonSocial, setFacturaRazonSocial] = useState('')
+  const [facturaDireccion, setFacturaDireccion] = useState('')
   const barcodeRef = useRef<HTMLInputElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const mountedRef = useRef(true)
@@ -242,6 +245,14 @@ export default function POSPage() {
 
   const handleSubmit = async () => {
     if (carrito.length === 0) return
+
+    if (comprobante === 'FACTURA') {
+      if (!facturaRuc.trim() || !facturaRazonSocial.trim() || !facturaDireccion.trim()) {
+        setSubmitError('Completa RUC, Razón Social y Dirección para emitir factura')
+        return
+      }
+    }
+
     setSubmitting(true)
     setSubmitError('')
     try {
@@ -252,6 +263,10 @@ export default function POSPage() {
           items: carrito.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
           metodoPago,
           montoRecibido: metodoPago === 'EFECTIVO' ? montoRecibido : total.toFixed(2),
+          dniCliente: comprobante === 'BOLETA_DNI' && clienteDni.trim() ? clienteDni.trim() : undefined,
+          rucCliente: comprobante === 'FACTURA' ? facturaRuc.trim() : undefined,
+          razonSocial: comprobante === 'FACTURA' ? facturaRazonSocial.trim() : undefined,
+          direccion: comprobante === 'FACTURA' ? facturaDireccion.trim() : undefined,
         }),
       })
       const data = await res.json()
@@ -456,6 +471,32 @@ export default function POSPage() {
                 className="w-full max-w-xs px-3 py-2 mb-4 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
                 placeholder="DNI del cliente..."
               />
+            )}
+
+            {comprobante === 'FACTURA' && (
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <input
+                  value={facturaRuc}
+                  onChange={(e) => setFacturaRuc(e.target.value)}
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                  placeholder="RUC del cliente"
+                  required
+                />
+                <input
+                  value={facturaRazonSocial}
+                  onChange={(e) => setFacturaRazonSocial(e.target.value)}
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                  placeholder="Razón Social"
+                  required
+                />
+                <input
+                  value={facturaDireccion}
+                  onChange={(e) => setFacturaDireccion(e.target.value)}
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                  placeholder="Dirección"
+                  required
+                />
+              </div>
             )}
 
             <div className="relative mb-4">

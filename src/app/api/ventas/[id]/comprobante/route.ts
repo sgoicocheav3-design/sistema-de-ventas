@@ -20,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           include: { producto: { select: { id: true, nombre: true, marca: true, codigo: true } } },
         },
         usuario: { select: { id: true, nombre: true } },
-        cliente: { select: { id: true, dni: true, nombre: true, email: true, telefono: true } },
+        cliente: { select: { id: true, dni: true, nombre: true, direccion: true, email: true, telefono: true } },
       },
     })
 

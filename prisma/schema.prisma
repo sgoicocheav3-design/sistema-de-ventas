@@ -126,8 +126,9 @@ model ConfigSistema {
 
 model Cliente {
   id             Int       @id @default(autoincrement())
-  dni            String    @unique @db.VarChar(8)
+  dni            String    @unique @db.VarChar(11)
   nombre         String    @db.VarChar(255)
+  direccion      String?   @db.VarChar(255)
   email          String?   @db.VarChar(255)
   telefono       String?   @db.VarChar(20)
   activo         Boolean   @default(true)

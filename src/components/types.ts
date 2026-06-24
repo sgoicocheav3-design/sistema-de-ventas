@@ -18,7 +18,7 @@ export interface VentaData {
   estado: string
   creadoEn: string
   usuario: { id: number; nombre: string }
-  cliente: { id: number; dni: string; nombre: string; email?: string; telefono?: string } | null
+  cliente: { id: number; dni: string; nombre: string; direccion?: string; email?: string; telefono?: string } | null
   detalles: DetalleVenta[]
   pagoId?: string | null
   qrData?: string | null
