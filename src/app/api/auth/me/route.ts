@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'Usuario no disponible' }, { status: 401 })
     }
 
-    const newToken = signToken({ id: usuario.id, rol: usuario.rol, nombre: usuario.nombre })
+    const newToken = signToken({ id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol })
 
     return NextResponse.json({
       token: newToken,

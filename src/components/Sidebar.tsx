@@ -1,22 +1,22 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Truck,
   ClipboardList, BarChart3, Shield, LogOut, Menu, X, Warehouse,
-  FileSpreadsheet, FileText, ClipboardCheck, UserCheck, FileSearch, DollarSign,
+  FileSpreadsheet, FileText, ClipboardCheck, UserCheck, FileSearch, DollarSign, Bell,
 } from 'lucide-react'
+import NotificationBell from './NotificationBell'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'VENDEDOR', 'ALMACENERO', 'GERENTE'] },
   { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart, roles: ['VENDEDOR', 'ADMIN'] },
+  { href: '/ventas', label: 'Historial Ventas', icon: FileText, roles: ['VENDEDOR', 'ADMIN', 'GERENTE'] },
   { href: '/admin/usuarios', label: 'Usuarios', icon: Users, roles: ['ADMIN'] },
   { href: '/admin/proveedores', label: 'Proveedores', icon: Truck, roles: ['ADMIN'] },
-  { href: '/admin/reportes', label: 'Reportes', icon: BarChart3, roles: ['ADMIN'] },
-  { href: '/admin/backups', label: 'Backups', icon: Shield, roles: ['ADMIN'] },
-  { href: '/admin/auditoria', label: 'Auditoría', icon: FileSearch, roles: ['ADMIN'] },
   { href: '/almacen/productos', label: 'Productos', icon: Package, roles: ['ALMACENERO', 'ADMIN'] },
   { href: '/almacen/entradas', label: 'Entradas', icon: ClipboardList, roles: ['ALMACENERO', 'ADMIN'] },
   { href: '/almacen/bajas', label: 'Bajas', icon: FileText, roles: ['ALMACENERO', 'ADMIN'] },
@@ -24,14 +24,26 @@ const navItems = [
   { href: '/almacen/recepciones', label: 'Recepciones', icon: Warehouse, roles: ['ALMACENERO', 'ADMIN'] },
   { href: '/gerencia/dashboard', label: 'Gerencia', icon: BarChart3, roles: ['GERENTE', 'ADMIN'] },
   { href: '/gerencia/solicitudes', label: 'G. Solicitudes', icon: UserCheck, roles: ['GERENTE', 'ADMIN'] },
-  { href: '/gerencia/reportes', label: 'G. Reportes', icon: FileSpreadsheet, roles: ['GERENTE', 'ADMIN'] },
-  { href: '/gerencia/auditoria', label: 'G. Auditoría', icon: FileSearch, roles: ['GERENTE', 'ADMIN'] },
-  { href: '/gerencia/cierre-caja', label: 'Cierre Caja', icon: DollarSign, roles: ['GERENTE', 'ADMIN'] },
 ]
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const pathname = usePathname()
+  const [pendientesCount, setPendientesCount] = useState(0)
+
+  useEffect(() => {
+    fetch('/api/almacen/solicitudes/count?estado=APROBADA')
+      .then((r) => r.json())
+      .then((d) => setPendientesCount(d.count || 0))
+      .catch(() => {})
+    const interval = setInterval(() => {
+      fetch('/api/almacen/solicitudes/count?estado=APROBADA')
+        .then((r) => r.json())
+        .then((d) => setPendientesCount(d.count || 0))
+        .catch(() => {})
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   if (!user) return null
 
@@ -50,9 +62,12 @@ export default function Sidebar() {
             <h2 className="font-bold text-lg">Sistema Ventas</h2>
             <p className="text-sm text-gray-400 capitalize">{user.rol.toLowerCase()}</p>
           </div>
-          <label htmlFor="sidebar-toggle" className="lg:hidden cursor-pointer p-1 hover:bg-gray-700 rounded">
-            <X size={20} />
-          </label>
+          <div className="flex items-center gap-1">
+            <div className="[&_button]:text-white [&_.text-gray-600]:text-gray-300"><NotificationBell /></div>
+            <label htmlFor="sidebar-toggle" className="lg:hidden cursor-pointer p-1 hover:bg-gray-700 rounded">
+              <X size={20} />
+            </label>
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -68,6 +83,11 @@ export default function Sidebar() {
               >
                 <Icon size={18} />
                 {label}
+                {href === '/almacen/recepciones' && pendientesCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                    {pendientesCount > 99 ? '99+' : pendientesCount}
+                  </span>
+                )}
               </Link>
             )
           })}

@@ -10,13 +10,14 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const { page, limit, skip } = parsePagination(searchParams)
+  const activoParam = searchParams.get('activo')
 
   try {
-    const where = { activo: true }
+    const where = activoParam ? { activo: activoParam === 'true' } : {}
     const [usuarios, total] = await Promise.all([
       prisma.usuario.findMany({
         where,
-        select: { id: true, nombre: true, email: true, rol: true, creadoEn: true },
+        select: { id: true, nombre: true, email: true, rol: true, activo: true, creadoEn: true },
         orderBy: { creadoEn: 'desc' },
         skip,
         take: limit,

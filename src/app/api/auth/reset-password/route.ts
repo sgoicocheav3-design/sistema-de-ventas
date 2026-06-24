@@ -1,54 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
-import { createHash } from 'crypto'
 import { validatePassword } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   try {
-    const { token, password } = await req.json()
+    const { email, codigo, nueva_password } = await req.json()
 
-    if (!token || !password) {
-      return NextResponse.json({ message: 'Token y contraseña requeridos' }, { status: 400 })
+    if (!email || !codigo || !nueva_password) {
+      return NextResponse.json({ message: 'Email, código y nueva contraseña requeridos' }, { status: 400 })
     }
 
-    if (typeof token !== 'string' || token.length < 20) {
-      return NextResponse.json({ message: 'Enlace inválido o expirado' }, { status: 400 })
+    if (typeof codigo !== 'string' || !/^\d{4}$/.test(codigo)) {
+      return NextResponse.json({ message: 'Código inválido' }, { status: 400 })
     }
 
-    if (typeof password !== 'string') {
+    if (typeof nueva_password !== 'string') {
       return NextResponse.json({ message: 'Contraseña inválida' }, { status: 400 })
     }
 
-    const passwordError = validatePassword(password)
+    const passwordError = validatePassword(nueva_password)
     if (passwordError) {
       return NextResponse.json({ message: passwordError }, { status: 400 })
     }
 
-    const tokenHash = createHash('sha256').update(token).digest('hex')
-
-    const usuario = await prisma.usuario.findFirst({
-      where: { resetTokenHash: tokenHash, activo: true },
+    const usuario = await prisma.usuario.findUnique({
+      where: { email: email.toLowerCase().trim(), activo: true },
     })
 
     if (!usuario) {
-      return NextResponse.json({ message: 'Enlace inválido o expirado' }, { status: 400 })
+      return NextResponse.json({ message: 'Código inválido o expirado' }, { status: 400 })
+    }
+
+    if (!usuario.resetTokenHash || usuario.resetTokenHash !== codigo) {
+      return NextResponse.json({ message: 'Código inválido o expirado' }, { status: 400 })
     }
 
     if (usuario.resetUsed) {
-      return NextResponse.json({ message: 'Este enlace ya ha sido utilizado. Solicita uno nuevo.' }, { status: 400 })
+      return NextResponse.json({ message: 'Este código ya ha sido utilizado. Solicita uno nuevo.' }, { status: 400 })
     }
 
     if (!usuario.resetExpiry || new Date() > usuario.resetExpiry) {
-      return NextResponse.json({ message: 'El enlace ha expirado. Solicita uno nuevo.' }, { status: 400 })
+      return NextResponse.json({ message: 'El código ha expirado. Solicita uno nuevo.' }, { status: 400 })
     }
 
-    const mismaPassword = await bcrypt.compare(password, usuario.passwordHash)
+    const mismaPassword = await bcrypt.compare(nueva_password, usuario.passwordHash)
     if (mismaPassword) {
       return NextResponse.json({ message: 'No puedes usar la misma contraseña anterior' }, { status: 400 })
     }
 
-    const passwordHash = await bcrypt.hash(password, 10)
+    const passwordHash = await bcrypt.hash(nueva_password, 10)
 
     await prisma.usuario.update({
       where: { id: usuario.id },
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     })
 
     await prisma.logAcceso.create({
-      data: { usuarioId: usuario.id, accion: 'Contraseña restablecida exitosamente' },
+      data: { usuarioId: usuario.id, accion: 'Contraseña restablecida exitosamente vía código' },
     })
 
     return NextResponse.json({ message: 'Contraseña restablecida exitosamente' })

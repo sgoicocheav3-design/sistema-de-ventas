@@ -5,8 +5,11 @@ const publicRoutes = ['/login', '/recuperar-password', '/reset-password']
 const publicApiRoutes = ['/api/auth/login', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/logout', '/api/webhooks/']
 
 const routePermissions: Array<{ prefix: string; roles: string[] }> = [
+  { prefix: '/admin/usuarios', roles: ['ADMIN'] },
+  { prefix: '/admin/proveedores', roles: ['ADMIN', 'ALMACENERO'] },
   { prefix: '/admin', roles: ['ADMIN'] },
   { prefix: '/pos', roles: ['VENDEDOR', 'ADMIN'] },
+  { prefix: '/ventas', roles: ['VENDEDOR', 'ADMIN', 'GERENTE', 'ALMACENERO'] },
   { prefix: '/almacen', roles: ['ALMACENERO', 'ADMIN'] },
   { prefix: '/gerencia', roles: ['GERENTE', 'ADMIN'] },
 ]
@@ -40,7 +43,7 @@ export function middleware(req: NextRequest) {
 
   if (!decoded) {
     const response = pathname.startsWith('/api/')
-      ? NextResponse.json({ message: 'No autorizado' }, { status: 401 })
+      ? NextResponse.json({ message: 'Token requerido' }, { status: 401 })
       : NextResponse.redirect(new URL('/login', req.url))
     if (authRaw) {
       response.cookies.set('auth', '', { path: '/', maxAge: 0 })
@@ -52,7 +55,7 @@ export function middleware(req: NextRequest) {
     if (pathname === prefix || pathname.startsWith(prefix + '/')) {
       if (!roles.includes(decoded.rol)) {
         if (pathname.startsWith('/api/')) {
-          return NextResponse.json({ message: 'No tienes permisos para esta acción' }, { status: 403 })
+          return NextResponse.json({ message: 'Acceso no autorizado' }, { status: 403 })
         }
         return NextResponse.redirect(new URL('/dashboard', req.url))
       }

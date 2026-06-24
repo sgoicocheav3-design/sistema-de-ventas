@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { Printer, Download, ArrowLeft } from 'lucide-react'
 import { numeroALetras, fmtCurrency } from '@/lib/utils'
 import type { VentaData } from './types'
@@ -33,6 +33,29 @@ interface ComprobantePagoProps {
 export default function ComprobantePago({ venta, empresa, onVolver, onNuevaVenta }: ComprobantePagoProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [generating, setGenerating] = useState(false)
+  const [thermalMode, setThermalMode] = useState(false)
+
+  useEffect(() => {
+    if (thermalMode) {
+      const style = document.createElement('style')
+      style.id = 'thermal-print-style'
+      style.textContent = `
+        @page { size: 80mm auto; margin: 0; }
+        body { width: 80mm; font-size: 10px; font-family: monospace; }
+        #receipt-print-area { width: 72mm; margin: 0 auto; padding: 4mm; }
+        .no-print { display: none !important; }
+        table { font-size: 9px; }
+      `
+      document.head.appendChild(style)
+    } else {
+      const existing = document.getElementById('thermal-print-style')
+      if (existing) existing.remove()
+    }
+    return () => {
+      const existing = document.getElementById('thermal-print-style')
+      if (existing) existing.remove()
+    }
+  }, [thermalMode])
 
   const nombreComercial = empresa.nombre_comercial || 'MINIMARKET'
   const razonSocial = empresa.razon_social || 'MINIMARKET AGILE S.A.C.'
@@ -83,6 +106,12 @@ export default function ComprobantePago({ venta, empresa, onVolver, onNuevaVenta
           <button onClick={handleDownloadPDF} disabled={generating}
             className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition cursor-pointer text-sm disabled:bg-green-400">
             <Download size={16} /> {generating ? 'Generando...' : 'Descargar PDF'}
+          </button>
+          <button onClick={() => setThermalMode(!thermalMode)}
+            className={`flex items-center gap-2 border px-4 py-2 rounded-lg transition cursor-pointer text-sm ${
+              thermalMode ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            }`}>
+            {thermalMode ? '📄 Vista Normal' : '🧾 Térmica 80mm'}
           </button>
           <button onClick={onVolver}
             className="flex items-center gap-2 border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition cursor-pointer text-sm">

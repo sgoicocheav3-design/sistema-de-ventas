@@ -7,6 +7,8 @@ import ComprobantePago from '@/components/ComprobantePago'
 import { Search, Plus, Minus, Trash2, ShoppingCart, Printer, X, User, FileText, Package } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { calcularTotalesConIgvIncluido } from '@/lib/utils'
+import { useDebounce } from '@/lib/hooks'
+import StockBadge from '@/components/StockBadge'
 import type { VentaData } from '@/components/types'
 
 interface Producto {
@@ -30,8 +32,6 @@ export default function POSPage() {
   const [q, setQ] = useState('')
   const [categoria, setCategoria] = useState('')
   const [limite, setLimite] = useState('50')
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [productos, setProductos] = useState<Producto[]>([])
   const [carrito, setCarrito] = useState<CarritoItem[]>([])
   const [metodoPago, setMetodoPago] = useState('EFECTIVO')
@@ -79,7 +79,7 @@ export default function POSPage() {
         setQrModal(null)
         setCarrito([])
         setMontoRecibido('')
-        fetch('/api/almacen/productos?limit=50').then(r => r.ok && r.json()).then(data => {
+        fetch('/api/ventas/productos/buscar?limit=50').then(r => r.ok && r.json()).then(data => {
           if (data?.productos) setProductos(data.productos)
         }).catch(() => {})
       } else if (data.estado === 'RECHAZADO' || data.estado === 'CANCELADO') {
@@ -136,10 +136,22 @@ export default function POSPage() {
   }, [qrModal, fetchStatus])
 
   useEffect(() => {
-    fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => {})
+    fetch('/api/categorias')
+      .then((r) => {
+        if (!r.ok) throw new Error('Error en la respuesta')
+        return r.json()
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setCategorias(data)
+        }
+      })
+      .catch(() => {})
   }, [])
 
-  const search = useCallback(async (query: string, cat: string, limit: string, pg: number) => {
+  const debouncedQ = useDebounce(q, 250)
+
+  const search = useCallback(async (query: string, cat: string, limit: string) => {
     setSearching(true)
     setSearchError('')
     try {
@@ -147,12 +159,10 @@ export default function POSPage() {
       if (query.trim()) params.set('q', query)
       if (cat) params.set('categoria', cat)
       if (limit) params.set('limit', limit)
-      if (pg > 1) params.set('page', String(pg))
-      const res = await fetch(`/api/almacen/productos?${params}`)
+      const res = await fetch(`/api/ventas/productos/buscar?${params}`)
       if (res.ok) {
         const data = await res.json()
         setProductos(data.productos || [])
-        setTotalPages(data.totalPages || 1)
       }
       else setSearchError('Error al buscar productos')
     } catch {
@@ -163,16 +173,8 @@ export default function POSPage() {
   }, [])
 
   useEffect(() => {
-    setPage(1)
-    const t = setTimeout(() => search(q, categoria, limite, 1), 300)
-    return () => clearTimeout(t)
-  }, [q, categoria, limite, search])
-
-  useEffect(() => {
-    if (page <= 1) return
-    const t = setTimeout(() => search(q, categoria, limite, page), 300)
-    return () => clearTimeout(t)
-  }, [page])
+    search(debouncedQ, categoria, limite)
+  }, [debouncedQ, categoria, limite, search])
 
   const addToCart = (p: Producto) => {
     setCarrito((prev) => {
@@ -229,7 +231,7 @@ export default function POSPage() {
       setResultado(data as VentaData)
       setCarrito([])
       setMontoRecibido('')
-      search(q, categoria, limite, 1)
+      search(q, categoria, limite)
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Error al procesar venta')
     } finally {
@@ -254,7 +256,7 @@ export default function POSPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Escanea para Pagar</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Paga con Yape o Mercado Pago</h2>
           <p className="text-gray-500 mb-6">Total: S/ {qrModal.total.toFixed(2)}</p>
           {!estadoFinal && (
             <div className="flex justify-center mb-6">
@@ -265,7 +267,7 @@ export default function POSPage() {
           {qrEstado === 'PENDIENTE' && (
             <div className="flex items-center justify-center gap-2 text-blue-600 mb-6">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              <span className="font-medium">Esperando pago...</span>
+              <span className="font-medium">Escanea el QR con tu app de Yape o Mercado Pago...</span>
             </div>
           )}
           {qrEstado === 'PROCESANDO' && (
@@ -416,6 +418,9 @@ export default function POSPage() {
               <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg border border-red-200 mb-4">{searchError}</div>
             )}
 
+            {searchError && (
+              <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg border border-red-200 mb-4">{searchError}</div>
+            )}
             {searching ? (
               <div className="flex justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
@@ -426,58 +431,23 @@ export default function POSPage() {
                 <p>Busca productos para agregar al carrito</p>
               </div>
             ) : (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {productos.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => addToCart(p)}
-                      disabled={p.stock === 0}
-                      className="bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md hover:border-blue-300 disabled:opacity-50 transition cursor-pointer"
-                    >
-                      <p className="font-semibold text-gray-800 truncate">{p.nombre}</p>
-                      <p className="text-sm text-gray-500 truncate">{p.marca}</p>
-                      <div className="flex justify-between items-center mt-2">
-                        <span className="text-lg font-bold text-blue-600">S/ {Number(p.precio).toFixed(2)}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${p.stock <= 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                          Stock: {p.stock}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-2 mt-6">
-                    <button
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page <= 1}
-                      className="px-3 py-1.5 rounded border border-gray-300 text-sm disabled:opacity-30 hover:bg-gray-100 transition cursor-pointer"
-                    >
-                      Anterior
-                    </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-                      <button
-                        key={pg}
-                        onClick={() => setPage(pg)}
-                        className={`w-8 h-8 rounded text-sm font-medium transition cursor-pointer ${
-                          pg === page
-                            ? 'bg-blue-600 text-white'
-                            : 'border border-gray-300 hover:bg-gray-100'
-                        }`}
-                      >
-                        {pg}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page >= totalPages}
-                      className="px-3 py-1.5 rounded border border-gray-300 text-sm disabled:opacity-30 hover:bg-gray-100 transition cursor-pointer"
-                    >
-                      Siguiente
-                    </button>
-                  </div>
-                )}
-              </>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {productos.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => addToCart(p)}
+                    disabled={p.stock === 0}
+                    className="bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md hover:border-blue-300 disabled:opacity-50 transition cursor-pointer"
+                  >
+                    <p className="font-semibold text-gray-800 truncate">{p.nombre}</p>
+                    <p className="text-sm text-gray-500 truncate">{p.marca}</p>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-lg font-bold text-blue-600">S/ {Number(p.precio).toFixed(2)}</span>
+                      <StockBadge stock={p.stock} />
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 

@@ -49,14 +49,14 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
 
   try {
-    const { productoId, proveedorId, cantidad } = await req.json()
+    const { productoId, proveedorId, cantidad, observacion } = await req.json()
 
     if (!productoId || !proveedorId || cantidad === undefined) {
       return NextResponse.json({ message: 'productoId, proveedorId y cantidad son requeridos' }, { status: 400 })
     }
     const cant = parseInt(cantidad)
     if (isNaN(cant) || cant <= 0) {
-      return NextResponse.json({ message: 'La cantidad debe ser un número entero positivo' }, { status: 400 })
+      return NextResponse.json({ message: 'Cantidad debe ser mayor a cero' }, { status: 422 })
     }
 
     const producto = await prisma.producto.findUnique({ where: { id: parseInt(productoId) } })
@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
           proveedorId: parseInt(proveedorId),
           cantidad: cant,
           usuarioId: auth.id,
+          observacion: observacion?.trim() || null,
         },
         include: {
           producto: { select: { id: true, nombre: true, codigo: true } },

@@ -28,17 +28,23 @@ model Usuario {
   bajas             BajaInventario[]
   solicitudesCreadas SolicitudReposicion[]  @relation("solicitante")
   solicitudesRevisadas SolicitudReposicion[] @relation("revisor")
+  notificaciones Notificacion[]
+  auditorias     Auditoria[]
+  recepciones    RecepcionMercaderia[]
 
   @@map("usuarios")
 }
 
 model LogAcceso {
   id             Int       @id @default(autoincrement())
-  usuarioId      Int
+  usuarioId      Int?
+  email          String?   @db.VarChar(255)
   accion         String    @db.VarChar(255)
+  ip             String?   @db.VarChar(45)
+  userAgent      String?   @db.Text
   creadoEn       DateTime  @default(now())
 
-  usuario        Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario        Usuario?  @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([usuarioId])
   @@index([creadoEn])
@@ -71,6 +77,9 @@ model Producto {
   entradasMercaderia EntradaMercaderia[]
   bajas          BajaInventario[]
   solicitudes    SolicitudReposicion[]
+  auditorias     Auditoria[]
+  recepciones    RecepcionMercaderia[]
+  proveedores    ProveedorProducto[]
 
   @@index([categoriaId, activo])
   @@index([nombre, marca])
@@ -81,13 +90,30 @@ model Proveedor {
   id             Int       @id @default(autoincrement())
   nombre         String    @db.VarChar(255)
   ruc            String    @unique @db.VarChar(11)
-  contacto       String    @db.VarChar(255)
+  contacto       String?   @db.VarChar(255)
+  email          String?   @db.VarChar(255)
+  telefono       String?   @db.VarChar(20)
   activo         Boolean   @default(true)
   creadoEn       DateTime  @default(now())
 
   entradasMercaderia EntradaMercaderia[]
+  solicitudes        SolicitudReposicion[]
+  recepciones        RecepcionMercaderia[]
+  productos          ProveedorProducto[]
 
   @@map("proveedores")
+}
+
+model ProveedorProducto {
+  proveedorId    Int
+  productoId     Int
+
+  proveedor      Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  producto       Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@id([proveedorId, productoId])
+  @@index([productoId])
+  @@map("proveedores_productos")
 }
 
 model ConfigSistema {
@@ -159,6 +185,7 @@ model EntradaMercaderia {
   proveedorId    Int
   cantidad       Int
   usuarioId      Int
+  observacion    String?   @db.Text
   creadoEn       DateTime  @default(now())
 
   producto       Producto  @relation(fields: [productoId], references: [id], onDelete: Restrict)
@@ -194,12 +221,64 @@ model SolicitudReposicion {
   revisorId          Int?
   revisadoEn         DateTime?
   notaRechazo        String?    @db.Text
+  proveedorId        Int?
   creadoEn           DateTime   @default(now())
 
   producto           Producto   @relation(fields: [productoId], references: [id], onDelete: Restrict)
   solicitante        Usuario    @relation("solicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
   revisor            Usuario?   @relation("revisor", fields: [revisorId], references: [id], onDelete: SetNull)
+  proveedor          Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  recepciones        RecepcionMercaderia[]
 
   @@index([estado, creadoEn])
   @@map("solicitudes_reposicion")
+}
+
+model RecepcionMercaderia {
+  id             Int       @id @default(autoincrement())
+  solicitudId    Int
+  productoId     Int
+  proveedorId    Int
+  cantidad       Int
+  usuarioId      Int
+  creadoEn       DateTime  @default(now())
+
+  solicitud      SolicitudReposicion @relation(fields: [solicitudId], references: [id], onDelete: Restrict)
+  producto       Producto            @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  proveedor      Proveedor           @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  usuario        Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([solicitudId])
+  @@index([creadoEn])
+  @@map("recepciones_mercaderia")
+}
+
+model Notificacion {
+  id             Int       @id @default(autoincrement())
+  usuarioId      Int
+  titulo         String    @db.VarChar(255)
+  mensaje        String?   @db.Text
+  leida          Boolean   @default(false)
+  creadoEn       DateTime  @default(now())
+
+  usuario        Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, leida])
+  @@map("notificaciones")
+}
+
+model Auditoria {
+  id             Int       @id @default(autoincrement())
+  usuarioId      Int
+  productoId     Int
+  accion         String    @db.VarChar(255)
+  detalles       String?   @db.Text
+  creadoEn       DateTime  @default(now())
+
+  usuario        Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  producto       Producto  @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
+  @@index([productoId, creadoEn])
+  @@index([usuarioId])
+  @@map("auditoria")
 }

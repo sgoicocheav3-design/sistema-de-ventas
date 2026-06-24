@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
 import Pagination from '@/components/Pagination'
-import { FileText, Plus, Search, X } from 'lucide-react'
+import { FileText, Plus, Search, X, AlertTriangle } from 'lucide-react'
 
 interface Baja {
   id: number; cantidad: number; motivo: string; creadoEn: string
   producto: { id: number; nombre: string; codigo: string }
   usuario: { id: number; nombre: string }
 }
+
+const MOTIVOS = ['Vencido', 'Dañado', 'Robo', 'Error', 'Otro']
 
 export default function BajasPage() {
   const [bajas, setBajas] = useState<Baja[]>([])
@@ -21,10 +23,12 @@ export default function BajasPage() {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [form, setForm] = useState({ productoId: '', cantidad: '', motivo: '' })
   const [error, setError] = useState('')
   const [loadError, setLoadError] = useState('')
   const [productos, setProductos] = useState<Array<{ id: number; nombre: string; stock: number }>>([])
+  const [productoSeleccionado, setProductoSeleccionado] = useState<{ nombre: string; stock: number } | null>(null)
 
   useEffect(() => {
     fetch('/api/almacen/productos?limit=500').then((r) => r.ok && r.json())
@@ -51,14 +55,22 @@ export default function BajasPage() {
   const handlePageChange = (p: number) => fetchData(p, limit)
   const handleLimitChange = (l: number) => { setLimit(l); fetchData(1, l) }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError('')
+  const handleProductoChange = (id: string) => {
+    setForm({ ...form, productoId: id })
+    const prod = productos.find((p) => p.id === parseInt(id))
+    setProductoSeleccionado(prod ? { nombre: prod.nombre, stock: prod.stock } : null)
+  }
+
+  const handleConfirm = async () => {
+    setShowConfirm(false); setError('')
     const res = await fetch('/api/almacen/bajas', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.message); return }
-    setShowForm(false); setForm({ productoId: '', cantidad: '', motivo: '' }); fetchData(1, limit)
+    setShowForm(false); setForm({ productoId: '', cantidad: '', motivo: '' })
+    setProductoSeleccionado(null)
+    fetchData(1, limit)
   }
 
   return (
@@ -82,23 +94,52 @@ export default function BajasPage() {
                   <h2 className="text-lg font-bold">Nueva Baja</h2>
                   <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded cursor-pointer"><X size={20} /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <select value={form.productoId} onChange={(e) => setForm({ ...form, productoId: e.target.value })}
+                <form onSubmit={(e) => { e.preventDefault(); setError(''); setShowConfirm(true); }} className="space-y-4">
+                  <select value={form.productoId} onChange={(e) => handleProductoChange(e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required>
                     <option value="">Seleccionar producto</option>
                     {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>)}
                   </select>
+                  {productoSeleccionado && (
+                    <div className="text-sm text-gray-600 px-1">
+                      Stock actual: <span className="font-semibold">{productoSeleccionado.stock}</span> unidades
+                    </div>
+                  )}
                   <input type="number" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Cantidad" min={1} required />
-                  <textarea value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Motivo de la baja" rows={3} required />
+                  <select value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required>
+                    <option value="">Seleccionar motivo</option>
+                    {MOTIVOS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
                   {error && <div className="text-red-600 text-sm">{error}</div>}
                   <div className="flex gap-3">
-                    <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 cursor-pointer">Registrar</button>
+                    <button type="submit" className="flex-1 bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 cursor-pointer flex items-center justify-center gap-2">
+                      <AlertTriangle size={16} /> Confirmar Baja
+                    </button>
                     <button type="button" onClick={() => setShowForm(false)}
                       className="px-4 py-2.5 border rounded-lg hover:bg-gray-50 cursor-pointer">Cancelar</button>
                   </div>
                 </form>
+
+                {showConfirm && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+                      <h3 className="text-lg font-bold mb-2">¿Confirmar baja?</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Se reducirá el stock de <strong>{productoSeleccionado?.nombre}</strong> en {form.cantidad} unidades.
+                        Esta acción no se puede deshacer.
+                      </p>
+                      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
+                      <div className="flex gap-3">
+                        <button onClick={handleConfirm}
+                          className="flex-1 bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 cursor-pointer">Sí, confirmar</button>
+                        <button onClick={() => setShowConfirm(false)}
+                          className="px-4 py-2.5 border rounded-lg hover:bg-gray-50 cursor-pointer">Cancelar</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

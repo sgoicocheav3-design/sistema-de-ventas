@@ -40,6 +40,16 @@ export async function PUT(req: NextRequest) {
         },
       })
 
+      await tx.recepcionMercaderia.create({
+        data: {
+          solicitudId: parseInt(solicitudId),
+          productoId: solicitud.productoId,
+          proveedorId: parseInt(proveedorId),
+          cantidad: cant,
+          usuarioId: auth.id,
+        },
+      })
+
       await tx.producto.update({
         where: { id: solicitud.productoId },
         data: { stock: { increment: cant } },
@@ -47,7 +57,7 @@ export async function PUT(req: NextRequest) {
 
       await tx.solicitudReposicion.update({
         where: { id: parseInt(solicitudId) },
-        data: { estado: 'RECIBIDA' },
+        data: { estado: 'COMPLETADA' },
       })
     })
 

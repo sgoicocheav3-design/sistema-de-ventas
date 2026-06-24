@@ -6,7 +6,7 @@ import Pagination from '@/components/Pagination'
 import { ClipboardList, Plus, Search, X } from 'lucide-react'
 
 interface Entrada {
-  id: number; cantidad: number; creadoEn: string
+  id: number; cantidad: number; creadoEn: string; observacion?: string | null
   producto: { id: number; nombre: string; codigo: string }
   proveedor: { id: number; nombre: string; ruc: string }
   usuario: { id: number; nombre: string }
@@ -22,12 +22,11 @@ export default function EntradasPage() {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ productoId: '', proveedorId: '', cantidad: '' })
+  const [form, setForm] = useState({ productoId: '', proveedorId: '', cantidad: '', observacion: '' })
   const [error, setError] = useState('')
   const [loadError, setLoadError] = useState('')
-  const [productos, setProductos] = useState<Array<{ id: number; nombre: string }>>([])
+  const [productos, setProductos] = useState<Array<{ id: number; nombre: string; stock: number }>>([])
   const [proveedores, setProveedores] = useState<Array<{ id: number; nombre: string }>>([])
-
   useEffect(() => {
     Promise.all([
       fetch('/api/almacen/productos?limit=500').then((r) => r.ok && r.json()).then((d) => setProductos(d.productos || [])),
@@ -63,7 +62,7 @@ export default function EntradasPage() {
     })
     const data = await res.json()
     if (!res.ok) { setError(data.message); return }
-    setShowForm(false); setForm({ productoId: '', proveedorId: '', cantidad: '' }); fetchData(1, limit)
+      setShowForm(false); setForm({ productoId: '', proveedorId: '', cantidad: '', observacion: '' }); fetchData(1, limit)
   }
 
   return (
@@ -100,6 +99,8 @@ export default function EntradasPage() {
                   </select>
                   <input type="number" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Cantidad" min={1} required />
+                  <textarea value={form.observacion} onChange={(e) => setForm({ ...form, observacion: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Observación (opcional)" rows={2} />
                   {error && <div className="text-red-600 text-sm">{error}</div>}
                   <div className="flex gap-3">
                     <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 cursor-pointer">Registrar</button>

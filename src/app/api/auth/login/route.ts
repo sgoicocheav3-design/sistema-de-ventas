@@ -16,18 +16,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Credenciales inválidas' }, { status: 400 })
     }
 
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
+    const userAgent = req.headers.get('user-agent') || null
+
     const usuario = await prisma.usuario.findUnique({ where: { email: email.toLowerCase().trim() } })
     if (!usuario) {
+      await prisma.logAcceso.create({
+        data: { email: email.toLowerCase().trim(), accion: 'LOGIN_FAIL', ip, userAgent },
+      })
       return NextResponse.json({ message: 'Credenciales incorrectas' }, { status: 401 })
     }
 
     if (usuario.bloqueadoHasta && new Date() < new Date(usuario.bloqueadoHasta)) {
+      await prisma.logAcceso.create({
+        data: { usuarioId: usuario.id, email: usuario.email, accion: 'LOGIN_FAIL', ip, userAgent },
+      })
       return NextResponse.json({
         message: 'Cuenta temporalmente bloqueada. Intenta de nuevo más tarde.',
       }, { status: 429 })
     }
 
     if (!usuario.activo) {
+      await prisma.logAcceso.create({
+        data: { email: usuario.email, accion: 'LOGIN_FAIL', ip, userAgent },
+      })
       return NextResponse.json({ message: 'Credenciales incorrectas' }, { status: 401 })
     }
 
@@ -40,6 +52,9 @@ export async function POST(req: NextRequest) {
         updates.intentosFallidos = 0
       }
       await prisma.usuario.update({ where: { id: usuario.id }, data: updates })
+      await prisma.logAcceso.create({
+        data: { usuarioId: usuario.id, email: usuario.email, accion: 'LOGIN_FAIL', ip, userAgent },
+      })
       return NextResponse.json({ message: 'Credenciales incorrectas' }, { status: 401 })
     }
 
@@ -48,10 +63,10 @@ export async function POST(req: NextRequest) {
       data: { intentosFallidos: 0, bloqueadoHasta: null },
     })
 
-    const token = signToken({ id: usuario.id, rol: usuario.rol, nombre: usuario.nombre })
+    const token = signToken({ id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol })
 
     await prisma.logAcceso.create({
-      data: { usuarioId: usuario.id, accion: `Inicio de sesión - ${usuario.rol}` },
+      data: { usuarioId: usuario.id, email: usuario.email, accion: 'LOGIN_OK', ip, userAgent },
     })
 
     const response = NextResponse.json({

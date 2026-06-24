@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
 
@@ -8,9 +9,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const { id } = await params
-    const { nombre, email, rol } = await req.json()
+    const { nombre, email, rol, password, activo } = await req.json()
 
-    if (!nombre && !email && !rol) {
+    if (!nombre && !email && !rol && password === undefined && activo === undefined) {
       return NextResponse.json({ message: 'Debe enviar al menos un campo a editar' }, { status: 400 })
     }
 
@@ -27,10 +28,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
+    const data: Record<string, unknown> = {}
+    if (nombre) data.nombre = nombre
+    if (email) data.email = email
+    if (rol) data.rol = rol
+    if (activo !== undefined) data.activo = activo
+    if (password) {
+      data.passwordHash = await bcrypt.hash(password, 10)
+    }
+
     const actualizado = await prisma.usuario.update({
       where: { id: parseInt(id) },
-      data: { ...(nombre && { nombre }), ...(email && { email }), ...(rol && { rol }) },
-      select: { id: true, nombre: true, email: true, rol: true },
+      data,
+      select: { id: true, nombre: true, email: true, rol: true, activo: true, creadoEn: true },
     })
     return NextResponse.json(actualizado)
   } catch (err: unknown) {

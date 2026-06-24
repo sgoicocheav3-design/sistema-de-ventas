@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const user = getUserFromRequest(req)
     if (user) {
       await prisma.logAcceso.create({
-        data: { usuarioId: user.id, accion: `Cierre de sesión - ${user.rol}` },
+        data: { usuarioId: user.id, email: user.email, accion: 'LOGOUT' },
       })
     }
 

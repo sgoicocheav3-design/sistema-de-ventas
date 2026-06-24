@@ -8,7 +8,8 @@ export async function GET() {
       select: { id: true, nombre: true },
     })
     return NextResponse.json(categorias)
-  } catch {
+  } catch (error) {
+    console.error('Error fetching categorias:', error)
     return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 })
   }
 }

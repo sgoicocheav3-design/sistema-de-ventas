@@ -10,9 +10,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const { id } = await params
-    const { nombre, ruc, contacto } = await req.json()
+    const { nombre, ruc, contacto, email, telefono, activo } = await req.json()
 
-    if (!nombre && !ruc && !contacto) {
+    if (!nombre && !ruc && !contacto && !email && !telefono && activo === undefined) {
       return NextResponse.json({ message: 'Debe enviar al menos un campo a editar' }, { status: 400 })
     }
     if (ruc && !validarRUC(ruc)) {
@@ -25,9 +25,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
+    const data: Record<string, unknown> = {}
+    if (nombre) data.nombre = nombre
+    if (ruc) data.ruc = ruc
+    if (contacto !== undefined) data.contacto = contacto
+    if (email !== undefined) data.email = email
+    if (telefono !== undefined) data.telefono = telefono
+    if (activo !== undefined) data.activo = activo
+
     const actualizado = await prisma.proveedor.update({
       where: { id: parseInt(id) },
-      data: { ...(nombre && { nombre }), ...(ruc && { ruc }), ...(contacto && { contacto }) },
+      data,
     })
     return NextResponse.json(actualizado)
   } catch (err: unknown) {

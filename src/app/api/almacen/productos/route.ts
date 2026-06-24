@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') || ''
   const categoria = searchParams.get('categoria')
+  const marca = searchParams.get('marca') || ''
   const stockBajo = searchParams.get('stockBajo') === 'true'
   const activo = searchParams.get('activo') !== 'false'
   const { page, limit, skip } = parsePagination(searchParams)
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
       ]
     }
     if (categoria) where.categoriaId = parseInt(categoria)
+    if (marca) where.marca = marca
     if (stockBajo) {
       const cfg = await prisma.configSistema.findUnique({ where: { clave: 'umbral_alerta_visual' } })
       const umbral = cfg ? parseInt(cfg.valor) : 5
@@ -40,9 +42,13 @@ export async function GET(req: NextRequest) {
       prisma.producto.count({ where }),
     ])
 
+    const cfgUmbral = await prisma.configSistema.findUnique({ where: { clave: 'umbral_alerta_visual' } })
+    const umbral = cfgUmbral ? parseInt(cfgUmbral.valor) : 5
+
     const result = productos.map((p) => ({
       ...p,
       precio: Number(p.precio),
+      alerta_stock: p.stock <= umbral,
     }))
 
     return NextResponse.json({ productos: result, total, page, totalPages: Math.ceil(total / limit) })

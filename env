@@ -1,0 +1,23 @@
+# Conexión directa — migraciones y desarrollo local
+DIRECT_URL="postgresql://postgres.aeivjgfdyirsemqstqud:kenivelxd011@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
+
+# Conexión a Supabase (usa el pooler en Vercel: puerto 6543 + ?pgbouncer=true)
+DATABASE_URL="postgresql://postgres.aeivjgfdyirsemqstqud:kenivelxd011@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+
+SUPABASE_PROJECT_REF="aeivjgfdyirsemqstqud"
+NEXT_PUBLIC_APP_URL="https://sistema-de-ventas-one-mu.vercel.app"
+JWT_SECRET="c2LMpn5VaoRXePFPGGA/an7X29Rv0XbINQWANR7g2ytKz7Xgp1xRBMu6goH2VkhY"
+JWT_EXPIRES_IN="8"
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=587
+SMTP_USER="sroselg051@gmail.com"
+SMTP_PASS="qrbf unvg cybx anrc"
+
+PORT=4000
+
+
+MERCADOPAGO_ACCESS_TOKEN="APP_USR-7294604210960626-052201-f1fc73adc94fa3dbad302e5aa9f0bb6d-3230467430"
+NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY="APP_USR-5f24c392-fae2-4348-87b7-11780d6a1275"
+MERCADOPAGO_CLIENT_ID="7294604210960626"
+MERCADOPAGO_CLIENT_SECRET="Hd1lbxR5GL28HDCi1akoZhKs4NY9lips"
+MERCADOPAGO_WEBHOOK_SECRET="dbcff3d473a3120b5ca6a35143e17fd045b6bea065a031941613487702d3ee7a"

@@ -9,8 +9,9 @@ if (!JWT_SECRET) {
 
 export interface JwtPayload {
   id: number
-  rol: string
   nombre: string
+  email: string
+  rol: string
 }
 
 export function signToken(payload: JwtPayload): string {

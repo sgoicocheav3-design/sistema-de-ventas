@@ -3,12 +3,74 @@ import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
 import { MercadoPagoConfig, Preference } from 'mercadopago'
 import { calcularTotalesConIgvIncluido } from '@/lib/utils'
+import { parsePagination } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
   const auth = withAuth(req)
   if (auth instanceof NextResponse) return auth
 
   const { searchParams } = new URL(req.url)
+
+  // If page param is present, list sales history
+  if (searchParams.has('page')) {
+    const q = searchParams.get('q') || ''
+    const desde = searchParams.get('desde')
+    const hasta = searchParams.get('hasta')
+    const { page, limit, skip } = parsePagination(searchParams)
+
+    try {
+      const where: Record<string, unknown> = {}
+      if (q.trim()) {
+        where.OR = [
+          { numero: { contains: q.trim(), mode: 'insensitive' } },
+          { cliente: { nombre: { contains: q.trim(), mode: 'insensitive' } } },
+        ]
+      }
+      if (desde || hasta) {
+        const dateFilter: Record<string, Date> = {}
+        if (desde) dateFilter.gte = new Date(desde)
+        if (hasta) dateFilter.lte = new Date(hasta + 'T23:59:59.999Z')
+        where.creadoEn = dateFilter
+      }
+
+      const [ventas, total] = await Promise.all([
+        prisma.venta.findMany({
+          where,
+          include: {
+            detalles: {
+              include: { producto: { select: { nombre: true, marca: true } } },
+            },
+            usuario: { select: { id: true, nombre: true } },
+            cliente: { select: { id: true, dni: true, nombre: true } },
+          },
+          orderBy: { creadoEn: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.venta.count({ where }),
+      ])
+
+      const result = ventas.map((v) => ({
+        ...v,
+        subtotal: Number(v.subtotal),
+        igv: Number(v.igv),
+        total: Number(v.total),
+        montoRecibido: Number(v.montoRecibido),
+        vuelto: Number(v.vuelto),
+        detalles: v.detalles.map((d) => ({
+          ...d,
+          precioUnitario: Number(d.precioUnitario),
+          subtotal: Number(d.subtotal),
+        })),
+      }))
+
+      return NextResponse.json({ ventas: result, total, page, totalPages: Math.ceil(total / limit) })
+    } catch {
+      return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 })
+    }
+  }
+
+  // Otherwise, search products for POS
   const q = searchParams.get('q') || ''
   const categoria = searchParams.get('categoria')
   const limitStr = searchParams.get('limit')
@@ -52,12 +114,12 @@ export async function POST(req: NextRequest) {
     if (!items?.length) {
       return NextResponse.json({ message: 'El carrito no puede estar vacío' }, { status: 400 })
     }
-    const metodosValidos = ['EFECTIVO', 'YAPE', 'PLIN', 'TARJETA', 'CHEQUE', 'TRANSFERENCIA']
+    const metodosValidos = ['EFECTIVO', 'YAPE']
     if (!metodosValidos.includes(metodoPago)) {
       return NextResponse.json({ message: 'Método de pago inválido' }, { status: 400 })
     }
 
-    const isMP = ['YAPE', 'PLIN', 'TARJETA'].includes(metodoPago)
+    const isMP = metodoPago === 'YAPE'
 
     const venta = await prisma.$transaction(async (tx) => {
       const lineas: Array<{ productoId: number; cantidad: number; precioUnitario: number }> = []
