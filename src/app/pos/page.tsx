@@ -281,6 +281,10 @@ export default function POSPage() {
       setResultado(data as VentaData)
       setCarrito([])
       setMontoRecibido('')
+      setClienteDni('')
+      setFacturaRuc('')
+      setFacturaRazonSocial('')
+      setFacturaDireccion('')
       if (showProductList) search(q, categoria, limite)
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Error al procesar venta')
@@ -388,7 +392,7 @@ export default function POSPage() {
         venta={resultado}
         empresa={empresaData}
         onVolver={() => setShowReceipt(false)}
-        onNuevaVenta={() => { setResultado(null); setShowReceipt(false) }}
+        onNuevaVenta={() => { setResultado(null); setShowReceipt(false); setClienteDni(''); setFacturaRuc(''); setFacturaRazonSocial(''); setFacturaDireccion('') }}
       />
     )
   }
@@ -408,7 +412,7 @@ export default function POSPage() {
             </p>
           )}
           <div className="flex flex-col gap-3">
-            <button onClick={() => setResultado(null)}
+            <button onClick={() => { setResultado(null); setClienteDni(''); setFacturaRuc(''); setFacturaRazonSocial(''); setFacturaDireccion('') }}
               className="w-full bg-violet-600 hover:bg-violet-700 text-white py-2.5 rounded-lg transition cursor-pointer">
               Nueva Venta
             </button>
@@ -452,7 +456,7 @@ export default function POSPage() {
               ].map((opt) => (
                 <button
                   key={opt.key}
-                  onClick={() => setComprobante(opt.key)}
+                  onClick={() => { setComprobante(opt.key); setSubmitError('') }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
                     comprobante === opt.key
                       ? 'bg-violet-600 text-white shadow-sm'
@@ -480,21 +484,18 @@ export default function POSPage() {
                   onChange={(e) => setFacturaRuc(e.target.value)}
                   className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
                   placeholder="RUC del cliente"
-                  required
                 />
                 <input
                   value={facturaRazonSocial}
                   onChange={(e) => setFacturaRazonSocial(e.target.value)}
                   className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
                   placeholder="Razón Social"
-                  required
                 />
                 <input
                   value={facturaDireccion}
                   onChange={(e) => setFacturaDireccion(e.target.value)}
                   className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
                   placeholder="Dirección"
-                  required
                 />
               </div>
             )}

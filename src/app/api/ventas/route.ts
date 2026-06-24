@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
       }
 
       return nuevaVenta
-    })
+    }, { maxWait: 15000, timeout: 30000 })
 
     let qrData = null;
     let pagoId = null;
@@ -261,10 +261,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ...venta, qrData, pagoId }, { status: 201 })
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.error("Venta Error Detail:", err);
     const message = err?.message || 'Error al procesar la venta'
-    const status = message.includes('Stock') || message.includes('Monto') ? 400 : 500
-    return NextResponse.json({ message: `Error del Servidor: ${message}` }, { status })
+    const status = message.includes('Stock') || message.includes('Monto') || message.includes('Completa') ? 400 : 500
+    return NextResponse.json({ message }, { status })
   }
 }
