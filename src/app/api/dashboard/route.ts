@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     const [
       totalProductos, productosStockBajo, totalProveedores, totalUsuarios,
       ventasHoyAgg, ventasMesAgg, entradasMesAgg, igvMesAgg,
-      efectivoAgg, yapePlinAgg,
+      efectivoAgg, mercadoPagoAgg,
     ] = await Promise.all([
       prisma.producto.count({ where: { activo: true } }),
       prisma.producto.count({ where: { activo: true, stock: { lte: umbral } } }),
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       prisma.entradaMercaderia.aggregate({ _sum: { cantidad: true }, where: { creadoEn: { gte: inicioMes } } }),
       prisma.venta.aggregate({ _sum: { igv: true }, where: { creadoEn: { gte: inicioMes } } }),
       prisma.venta.aggregate({ _sum: { total: true }, where: { creadoEn: { gte: inicioMes }, metodoPago: 'EFECTIVO' } }),
-      prisma.venta.aggregate({ _sum: { total: true }, where: { creadoEn: { gte: inicioMes }, metodoPago: { in: ['YAPE', 'PLIN'] } } }),
+      prisma.venta.aggregate({ _sum: { total: true }, where: { creadoEn: { gte: inicioMes }, metodoPago: 'YAPE' } }),
     ])
 
     const ventasMes = Number(ventasMesAgg._sum.total || 0)
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
       utilidadMes: utilidadMes > 0 ? utilidadMes : 0,
       igvMes,
       efectivoCaja: Number(efectivoAgg._sum.total || 0),
-      yapePlin: Number(yapePlinAgg._sum.total || 0),
+      mercadoPago: Number(mercadoPagoAgg._sum.total || 0),
       productosStockBajo,
       totalProductos,
       totalProveedores,

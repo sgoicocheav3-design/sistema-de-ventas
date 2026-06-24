@@ -16,7 +16,7 @@ interface DashboardData {
   utilidadMes: number
   igvMes: number
   efectivoCaja: number
-  yapePlin: number
+  mercadoPago: number
   productosStockBajo: number
   totalProductos: number
   totalProveedores: number
@@ -103,7 +103,7 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card title="IGV del Mes" value={data.igvMes} icon={DollarSign} color="bg-red-600" currency />
                     <Card title="Efectivo en Caja" value={data.efectivoCaja} icon={Wallet} color="bg-teal-600" currency />
-                    <Card title="Yape / Plin" value={data.yapePlin} icon={Smartphone} color="bg-indigo-600" currency />
+                    <Card title="Mercado Pago (Yape)" value={data.mercadoPago} icon={Smartphone} color="bg-indigo-600" currency />
                     <Card title="Productos Stock Bajo"
                       value={data.productosStockBajo}
                       icon={AlertTriangle}

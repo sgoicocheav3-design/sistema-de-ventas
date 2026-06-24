@@ -6,8 +6,7 @@ import { numeroALetras, fmtCurrency } from '@/lib/utils'
 import type { VentaData } from './types'
 
 const METODO_PAGO_LABEL: Record<string, string> = {
-  EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin',
-  TARJETA: 'Tarjeta', CHEQUE: 'Cheque', TRANSFERENCIA: 'Transferencia',
+  EFECTIVO: 'Efectivo', YAPE: 'Mercado Pago (Yape)'
 }
 
 function formatFecha(fecha: string) {

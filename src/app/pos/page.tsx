@@ -267,7 +267,7 @@ export default function POSPage() {
           {qrEstado === 'PENDIENTE' && (
             <div className="flex items-center justify-center gap-2 text-blue-600 mb-6">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              <span className="font-medium">Escanea el QR con tu app de Yape o Mercado Pago...</span>
+              <span className="font-medium">Escanea este código con la cámara de tu celular para pagar con Yape o Mercado Pago...</span>
             </div>
           )}
           {qrEstado === 'PROCESANDO' && (
