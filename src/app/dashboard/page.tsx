@@ -41,6 +41,9 @@ const Card = ({ title, value, icon: Icon, color, currency }: {
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const isVendedor = user?.rol === 'VENDEDOR'
+  const isAlmacenero = user?.rol === 'ALMACENERO'
+  const isAdminOrGerente = user?.rol === 'ADMIN' || user?.rol === 'GERENTE'
   const [data, setData] = useState<DashboardData | null>(null)
   const [chartData, setChartData] = useState<Array<{ mes: string; ventas: number; compras: number }>>([])
   const [loading, setLoading] = useState(true)
@@ -94,16 +97,16 @@ export default function DashboardPage() {
               {data ? (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card title="Ventas Hoy" value={data.ventasHoy} icon={ShoppingCart} color="bg-blue-600" currency />
-                    <Card title="Ventas del Mes" value={data.ventasMes} icon={TrendingUp} color="bg-green-600" currency />
-                    <Card title="Compras del Mes" value={data.comprasMes} icon={Package} color="bg-orange-600" />
-                    <Card title="Utilidad del Mes" value={data.utilidadMes} icon={BarChart3} color="bg-purple-600" currency />
+                    {(isAdminOrGerente || isVendedor) && <Card title="Ventas Hoy" value={data.ventasHoy} icon={ShoppingCart} color="bg-blue-600" currency />}
+                    {(isAdminOrGerente || isVendedor) && <Card title="Ventas del Mes" value={data.ventasMes} icon={TrendingUp} color="bg-green-600" currency />}
+                    {(isAdminOrGerente || isAlmacenero) && <Card title="Compras del Mes" value={data.comprasMes} icon={Package} color="bg-orange-600" />}
+                    {isAdminOrGerente && <Card title="Utilidad del Mes" value={data.utilidadMes} icon={BarChart3} color="bg-purple-600" currency />}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card title="IGV del Mes" value={data.igvMes} icon={DollarSign} color="bg-red-600" currency />
-                    <Card title="Efectivo en Caja" value={data.efectivoCaja} icon={Wallet} color="bg-teal-600" currency />
-                    <Card title="Mercado Pago (Yape)" value={data.mercadoPago} icon={Smartphone} color="bg-indigo-600" currency />
+                    {isAdminOrGerente && <Card title="IGV del Mes" value={data.igvMes} icon={DollarSign} color="bg-red-600" currency />}
+                    {(isAdminOrGerente || isVendedor) && <Card title="Efectivo en Caja" value={data.efectivoCaja} icon={Wallet} color="bg-teal-600" currency />}
+                    {(isAdminOrGerente || isVendedor) && <Card title="Mercado Pago (Yape)" value={data.mercadoPago} icon={Smartphone} color="bg-indigo-600" currency />}
                     <Card title="Productos Stock Bajo"
                       value={data.productosStockBajo}
                       icon={AlertTriangle}
@@ -113,15 +116,15 @@ export default function DashboardPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <Card title="Total Productos" value={data.totalProductos} icon={Package} color="bg-cyan-600" />
-                    <Card title="Total Proveedores" value={data.totalProveedores} icon={Truck} color="bg-pink-600" />
-                    <Card title="Total Usuarios" value={data.totalUsuarios} icon={Users} color="bg-amber-600" />
+                    {(isAdminOrGerente || isAlmacenero) && <Card title="Total Proveedores" value={data.totalProveedores} icon={Truck} color="bg-pink-600" />}
+                    {isAdminOrGerente && <Card title="Total Usuarios" value={data.totalUsuarios} icon={Users} color="bg-amber-600" />}
                   </div>
                 </>
               ) : (
                 <div className="text-center py-12 text-gray-500">No se pudieron cargar los datos</div>
               )}
 
-              {chartData.length > 0 ? (
+              {isAdminOrGerente && chartData.length > 0 ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Ventas del Año</h3>
                   <ResponsiveContainer width="100%" height={320}>
@@ -137,7 +140,7 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                !loading && !error && (
+                isAdminOrGerente && !loading && !error && (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center text-gray-500">
                     No hay datos de ventas disponibles
                   </div>
