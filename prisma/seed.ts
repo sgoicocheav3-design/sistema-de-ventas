@@ -195,6 +195,7 @@ async function main() {
         categoriaId: categorias[p.categoria],
         activo: true,
         stock: 0,
+        codigoBarras: String(0).padStart(12, '0'),
       },
       create: {
         codigo: p.codigo,
@@ -204,7 +205,13 @@ async function main() {
         stock: 0,
         categoriaId: categorias[p.categoria],
         fechaVencimiento: daysAgo(-180),
+        codigoBarras: String(0).padStart(12, '0'),
       },
+    })
+    const codigoBarras = String(prod.id).padStart(12, '0')
+    await prisma.producto.update({
+      where: { id: prod.id },
+      data: { codigoBarras },
     })
     productos[p.codigo] = { id: prod.id, precio: p.precio }
   }

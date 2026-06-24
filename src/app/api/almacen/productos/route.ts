@@ -115,7 +115,13 @@ export async function POST(req: NextRequest) {
       include: { categoria: { select: { id: true, nombre: true } } },
     })
 
-    return NextResponse.json(producto, { status: 201 })
+    const codigoBarras = String(producto.id).padStart(12, '0')
+    await prisma.producto.update({
+      where: { id: producto.id },
+      data: { codigoBarras },
+    })
+
+    return NextResponse.json({ ...producto, codigoBarras, precio: Number(producto.precio) }, { status: 201 })
   } catch {
     return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 })
   }

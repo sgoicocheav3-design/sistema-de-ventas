@@ -10,7 +10,7 @@ interface Categoria {
 }
 
 interface Producto {
-  id: number; codigo: string; nombre: string; marca: string | null
+  id: number; codigo: string; codigoBarras: string | null; nombre: string; marca: string | null
   precio: number; stock: number; activo: boolean
   categoria: { id: number; nombre: string } | null
   alerta_stock?: boolean
@@ -287,6 +287,7 @@ export default function ProductosPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Código</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Cód. Barras</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Nombre</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Marca</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Categoría</th>
@@ -297,10 +298,11 @@ export default function ProductosPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {productos.length === 0 ? (
-                      <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-500">No hay productos activos</td></tr>
+                      <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-500">No hay productos activos</td></tr>
                     ) : productos.map((p) => (
                       <tr key={p.id} className={`hover:bg-gray-50 ${p.alerta_stock ? 'bg-yellow-50' : ''}`}>
                         <td className="px-4 py-3 text-gray-600 text-sm">{p.codigo}</td>
+                        <td className="px-4 py-3 text-gray-600 text-sm font-mono">{p.codigoBarras || '-'}</td>
                         <td className="px-4 py-3 font-medium">
                           {p.alerta_stock && <span className="mr-1">⚠️</span>}
                           {p.nombre}
@@ -334,6 +336,7 @@ export default function ProductosPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Código</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Cód. Barras</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Nombre</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Marca</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Categoría</th>
@@ -344,10 +347,11 @@ export default function ProductosPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {productos.length === 0 ? (
-                      <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-500">No hay productos inactivos</td></tr>
+                      <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-500">No hay productos inactivos</td></tr>
                     ) : productos.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-gray-600 text-sm">{p.codigo}</td>
+                        <td className="px-4 py-3 text-gray-600 text-sm font-mono">{p.codigoBarras || '-'}</td>
                         <td className="px-4 py-3 font-medium">{p.nombre}</td>
                         <td className="px-4 py-3 text-gray-600">{p.marca || '-'}</td>
                         <td className="px-4 py-3">

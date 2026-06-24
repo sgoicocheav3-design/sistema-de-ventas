@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     const productos = await prisma.producto.findMany({
       where,
-      select: { id: true, nombre: true, marca: true, precio: true, stock: true, categoriaId: true },
+      select: { id: true, nombre: true, marca: true, precio: true, stock: true, categoriaId: true, codigoBarras: true },
       orderBy: { nombre: 'asc' },
       take: limit,
     })

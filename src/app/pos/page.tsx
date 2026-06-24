@@ -46,6 +46,7 @@ export default function POSPage() {
   const [qrStatusDetail, setQrStatusDetail] = useState<string | null>(null)
   const [qrError, setQrError] = useState<string | null>(null)
   const [categorias, setCategorias] = useState<Array<{ id: number; nombre: string }>>([])
+  const [showProductList, setShowProductList] = useState(true)
   const [searchError, setSearchError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const receiptRef = useRef<HTMLDivElement>(null)
@@ -380,9 +381,18 @@ export default function POSPage() {
         <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
           <HeaderToggle />
           <h1 className="text-xl font-bold text-gray-800">Punto de Venta</h1>
+          <button
+            onClick={() => setShowProductList(!showProductList)}
+            className="ml-auto flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition cursor-pointer"
+            title={showProductList ? 'Ocultar lista de productos' : 'Mostrar lista de productos'}
+          >
+            <Package size={16} />
+            {showProductList ? 'Ocultar productos' : 'Mostrar productos'}
+          </button>
         </header>
 
           <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+          {showProductList && (
           <div className="flex-1 p-4 lg:p-6 overflow-y-auto min-h-0 scrollbar-pos">
             <div className="flex gap-2 mb-4">
               <div className="relative flex-1">
@@ -450,6 +460,7 @@ export default function POSPage() {
               </div>
             )}
           </div>
+          )}
 
           <div className="lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col">
             <div className="p-4 border-b border-gray-200">
