@@ -10,6 +10,7 @@ const routePermissions: Array<{ prefix: string; roles: string[] }> = [
   { prefix: '/admin', roles: ['ADMIN'] },
   { prefix: '/pos', roles: ['VENDEDOR', 'ADMIN'] },
   { prefix: '/ventas', roles: ['VENDEDOR', 'ADMIN', 'GERENTE', 'ALMACENERO'] },
+  { prefix: '/almacen/solicitudes', roles: ['ALMACENERO', 'ADMIN', 'GERENTE'] },
   { prefix: '/almacen', roles: ['ALMACENERO', 'ADMIN'] },
   { prefix: '/gerencia', roles: ['GERENTE', 'ADMIN'] },
 ]
