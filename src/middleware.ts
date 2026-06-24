@@ -6,7 +6,7 @@ const publicApiRoutes = ['/api/auth/login', '/api/auth/forgot-password', '/api/a
 
 const routePermissions: Array<{ prefix: string; roles: string[] }> = [
   { prefix: '/admin/usuarios', roles: ['ADMIN'] },
-  { prefix: '/admin/proveedores', roles: ['ADMIN', 'ALMACENERO'] },
+  { prefix: '/admin/proveedores', roles: ['ADMIN'] },
   { prefix: '/admin', roles: ['ADMIN'] },
   { prefix: '/pos', roles: ['VENDEDOR', 'ADMIN'] },
   { prefix: '/ventas', roles: ['VENDEDOR', 'ADMIN', 'GERENTE', 'ALMACENERO'] },
