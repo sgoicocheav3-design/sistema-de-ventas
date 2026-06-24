@@ -1,383 +1,832 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import Sidebar, { HeaderToggle } from '@/components/Sidebar'
-import Pagination from '@/components/Pagination'
-import { Package, Plus, Edit2, Search, Filter, X } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Search, Pencil, EyeOff, Eye, X, Trash2, AlertTriangle, Loader2, Package } from 'lucide-react';
+import api from '@/utils/axios';
+import { formatMoneda, formatStock, formatFecha } from '@/utils/format';
+import { useAuth } from '@/lib/AuthContext';
+import Breadcrumb from '@/components/Breadcrumb';
+import Spinner from '@/components/Spinner';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import Toast from '@/components/Toast';
+import useToast from '@/hooks/useToast';
 
-interface Categoria {
-  id: number; nombre: string
+function ModalProducto({ abierto, onCerrar, onGuardar, productoEditando, categorias }: {
+  abierto: boolean; onCerrar: () => void; onGuardar: () => void; productoEditando: any; categorias: any[]
+}) {
+  const [nombre, setNombre] = useState('');
+  const [marca, setMarca] = useState('');
+  const [categoriaId, setCategoriaId] = useState('');
+  const [precio, setPrecio] = useState('');
+  const [stock, setStock] = useState('');
+  const [codigoBarras, setCodigoBarras] = useState('');
+  const [fechaVencimiento, setFechaVencimiento] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const esCreacion = !productoEditando;
+
+  useEffect(() => {
+    if (abierto) {
+      if (productoEditando) {
+        setNombre(productoEditando.nombre || '');
+        setMarca(productoEditando.marca || '');
+        setCategoriaId(productoEditando.categoria?.id ?? productoEditando.categoria_id ?? productoEditando.categoriaId ?? '');
+        setPrecio(productoEditando.precio ?? '');
+        setStock(productoEditando.stock ?? '');
+        setCodigoBarras(productoEditando.codigo_barras ?? '');
+        setFechaVencimiento(productoEditando.fecha_vencimiento ?? '');
+      } else {
+        const fv = new Date();
+        fv.setFullYear(fv.getFullYear() + 2);
+        setNombre('');
+        setMarca('');
+        setCategoriaId(categorias.length > 0 ? categorias[0].id : '');
+        setPrecio('');
+        setStock('');
+        setCodigoBarras('');
+        setFechaVencimiento(fv.toISOString().split('T')[0]);
+      }
+      setError('');
+    }
+  }, [abierto, productoEditando, categorias]);
+
+  if (!abierto) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const payload: Record<string, any> = { nombre, marca, categoria_id: categoriaId, precio: parseFloat(precio), codigo_barras: codigoBarras || null, fecha_vencimiento: fechaVencimiento || null };
+      if (esCreacion) payload.stock = parseInt(stock, 10) || 0;
+
+      if (esCreacion) {
+        await api.post('/productos', payload);
+      } else {
+        await api.put(`/productos/${productoEditando.id}`, payload);
+      }
+      onGuardar();
+    } catch (err: any) {
+      setError(err.response?.data?.mensaje || err.response?.data?.message || 'Error al guardar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800">
+            {esCreacion ? 'Nuevo Producto' : 'Editar Producto'}
+          </h2>
+          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Nombre</label>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Marca</label>
+            <input
+              type="text"
+              value={marca}
+              onChange={(e) => setMarca(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Categoría</label>
+            <select
+              value={categoriaId}
+              onChange={(e) => setCategoriaId(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="">Seleccionar...</option>
+              {categorias.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Precio</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">S./</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={precio}
+                onChange={(e) => setPrecio(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-200 px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+          </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Código de Barras</label>
+          <input
+            type="text"
+            value={codigoBarras}
+            onChange={(e) => setCodigoBarras(e.target.value)}
+            placeholder="Opcional"
+            className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+
+        {esCreacion && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Stock</label>
+              <input
+                type="number"
+                min="0"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Fecha de Vencimiento</label>
+            <input
+              type="date"
+              value={fechaVencimiento}
+              onChange={(e) => setFechaVencimiento(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            {esCreacion && (
+              <p className="mt-1 text-xs text-gray-400">Prellenado con +2 años por defecto</p>
+            )}
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-200"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex items-center gap-2 rounded-lg bg-[#6366f1] px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-600 disabled:opacity-70"
+            >
+              {loading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
-interface Producto {
-  id: number; codigo: string; codigoBarras: string | null; nombre: string; marca: string | null
-  precio: number; stock: number; activo: boolean
-  categoria: { id: number; nombre: string } | null
-  alerta_stock?: boolean
+function ModalSolicitud({ abierto, onCerrar, producto, proveedores, onCreada }: {
+  abierto: boolean; onCerrar: () => void; producto: any; proveedores: any[]; onCreada: () => void
+}) {
+  const [cantidad, setCantidad] = useState('');
+  const [proveedorId, setProveedorId] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (abierto && producto) {
+      setCantidad('');
+      setProveedorId(producto.proveedor?.id ?? '');
+      setError('');
+    }
+  }, [abierto, producto]);
+
+  if (!abierto || !producto) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnviando(true);
+    setError('');
+    try {
+      await api.post('/inventario/solicitudes', {
+        producto_id: producto.id,
+        cantidad: parseInt(cantidad, 10),
+        proveedor_id: proveedorId || undefined,
+      });
+      onCreada();
+    } catch (err: any) {
+      setError(err.response?.data?.mensaje || err.response?.data?.message || 'Error al crear solicitud');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => onCerrar()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800">Solicitar Reposición</h2>
+          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="mb-4 space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
+          <p><span className="font-medium text-gray-700">Producto:</span> {producto.nombre} - {producto.marca}</p>
+          <p><span className="font-medium text-gray-700">Stock actual:</span> {producto.stock} und(s)</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Cantidad a solicitar</label>
+            <input
+              type="number" min="1" value={cantidad}
+              onChange={(e) => setCantidad(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Proveedor</label>
+            <select
+              value={proveedorId}
+              onChange={(e) => setProveedorId(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="">Seleccionar...</option>
+              {proveedores.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          </div>
+          {error && <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</div>}
+          <div className="flex justify-end">
+            <button
+              type="submit" disabled={enviando}
+              className="flex items-center gap-2 rounded-lg bg-[#6366f1] px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-600 disabled:opacity-70"
+            >
+              {enviando && <Loader2 className="h-4 w-4 animate-spin" />}
+              Crear Solicitud
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ModalBaja({ abierto, onCerrar, producto, onRegistrada }: {
+  abierto: boolean; onCerrar: () => void; producto: any; onRegistrada: () => void
+}) {
+  const [cantidad, setCantidad] = useState('');
+  const [motivo, setMotivo] = useState('Vencido');
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (abierto && producto) {
+      setCantidad('1');
+      setMotivo('Vencido');
+      setError('');
+    }
+  }, [abierto, producto]);
+
+  if (!abierto || !producto) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const c = parseInt(cantidad, 10);
+    if (!c || c <= 0) { setError('La cantidad debe ser mayor a 0'); return; }
+    if (c > (producto.stock || 0)) { setError(`Stock insuficiente (disponible: ${producto.stock})`); return; }
+    setEnviando(true);
+    setError('');
+    try {
+      await api.post('/inventario/bajas', {
+        producto_id: producto.id,
+        cantidad: c,
+        motivo,
+      });
+      onRegistrada();
+    } catch (err: any) {
+      setError(err.response?.data?.mensaje || 'Error al registrar baja');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800">Dar de Baja</h2>
+          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mb-4 space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
+          <p><span className="font-medium text-gray-700">Producto:</span> {producto.nombre}</p>
+          <p><span className="font-medium text-gray-700">Stock actual:</span> {producto.stock} und(s)</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Cantidad</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={1}
+                max={producto.stock}
+                value={cantidad}
+                onChange={(e) => setCantidad(e.target.value)}
+                required
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+              <button
+                type="button"
+                onClick={() => setCantidad(String(producto.stock))}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+              >
+                Todo
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Motivo</label>
+            <select
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="Vencido">Vencido</option>
+              <option value="Dañado">Dañado</option>
+              <option value="Rotura">Rotura</option>
+              <option value="Caducado">Caducado</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          {error && <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</div>}
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-200"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={enviando}
+              className="flex items-center gap-2 rounded-lg bg-[#ef4444] px-4 py-2 text-sm text-white transition-colors hover:bg-red-600 disabled:opacity-70"
+            >
+              {enviando && <Loader2 className="h-4 w-4 animate-spin" />}
+              Registrar Baja
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 export default function ProductosPage() {
-  const [productos, setProductos] = useState<Producto[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(10)
-  const [totalPages, setTotalPages] = useState(1)
-  const [loading, setLoading] = useState(true)
-  const [q, setQ] = useState('')
-  const [catFilter, setCatFilter] = useState('')
-  const [marcaFilter, setMarcaFilter] = useState('')
-  const [categorias, setCategorias] = useState<Categoria[]>([])
-  const [marcas, setMarcas] = useState<string[]>([])
-  const [showForm, setShowForm] = useState(false)
-  const [editId, setEditId] = useState<number | null>(null)
-  const [form, setForm] = useState({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '' })
-  const [error, setError] = useState('')
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [loadError, setLoadError] = useState('')
-  const [stockBajo, setStockBajo] = useState(false)
-  const [tab, setTab] = useState<'activos' | 'inactivos'>('activos')
-  const [reactivando, setReactivando] = useState<number | null>(null)
+  const { user } = useAuth();
+  const { toast, mostrarExito, mostrarError, cerrar } = useToast();
+  const [productos, setProductos] = useState<any[]>([]);
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [productoEditando, setProductoEditando] = useState<any>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('Todas');
+  const [filtroEstado, setFiltroEstado] = useState('Todos');
+  const [confirmarEstado, setConfirmarEstado] = useState<any>(null);
+  const [modalBaja, setModalBaja] = useState<any>(null);
+  const [modalSolicitud, setModalSolicitud] = useState<any>(null);
+  const [proveedores, setProveedores] = useState<any[]>([]);
+  const [datosVencimiento, setDatosVencimiento] = useState<any[]>([]);
+  const [filtroAlerta, setFiltroAlerta] = useState('Todos');
+  const [paginaActual, setPaginaActual] = useState(1);
+  const ITEMS_POR_PAGINA = 12;
+  const rol = user?.rol;
+  const puedeDarBaja = rol === 'ALMACENERO' || rol === 'ADMIN';
 
-  useEffect(() => {
-    fetch('/api/categorias').then((r) => r.ok && r.json()).then(setCategorias).catch(() => setLoadError('Error al cargar categorías'))
-    fetch('/api/almacen/marcas').then((r) => r.ok && r.json()).then(setMarcas).catch(() => {})
-  }, [])
-
-  const fetchProductos = useCallback(async (p: number, l: number) => {
-    setLoading(true)
+  const cargarDatos = async () => {
+    setLoading(true);
+    setError('');
     try {
-      const params = new URLSearchParams({ page: String(p), limit: String(l) })
-      if (q.trim()) params.set('q', q)
-      if (catFilter) params.set('categoria', catFilter)
-      if (marcaFilter) params.set('marca', marcaFilter)
-      if (stockBajo) params.set('stockBajo', 'true')
-      const res = await fetch(`/api/almacen/productos?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setProductos(data.productos || [])
-        setTotal(data.total)
-        setPage(data.page)
-        setTotalPages(data.totalPages)
-      }
-    } catch {
-      setLoadError('Error al cargar productos')
+      const [resProductos, resCategorias, resVenc, resProv] = await Promise.all([
+        api.get('/productos'),
+        api.get('/categorias'),
+        api.get('/productos/vencer?dias=30').catch(() => ({ data: [] })),
+        api.get('/proveedores').catch(() => ({ data: [] })),
+      ]);
+      setProductos(Array.isArray(resProductos.data) ? resProductos.data : []);
+      setCategorias(Array.isArray(resCategorias.data) ? resCategorias.data : []);
+      setDatosVencimiento(Array.isArray(resVenc.data) ? resVenc.data : []);
+      setProveedores(Array.isArray(resProv.data) ? resProv.data : []);
+    } catch (err: any) {
+      setError(err.response?.data?.mensaje || 'Error al cargar datos');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [q, catFilter, marcaFilter])
+  };
 
-  const fetchInactivos = useCallback(async (p: number, l: number) => {
-    setLoading(true)
+  useEffect(() => { cargarDatos(); }, []);
+
+  const abrirCrear = () => { setProductoEditando(null); setModalAbierto(true); };
+  const abrirEditar = (p: any) => { setProductoEditando(p); setModalAbierto(true); };
+
+  const handleGuardar = () => {
+    setModalAbierto(false);
+    setProductoEditando(null);
+    cargarDatos();
+  };
+
+  const esActivo = (p: any) => p.activo === true || p.activo == null;
+
+  const toggleEstado = async () => {
+    if (!confirmarEstado) return;
+    const p = confirmarEstado;
+    const activo = esActivo(p);
+    const accion = activo ? 'desactivar' : 'reactivar';
+    setConfirmarEstado(null);
     try {
-      const params = new URLSearchParams({ page: String(p), limit: String(l) })
-      const res = await fetch(`/api/almacen/productos/inactivos?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setProductos(data.productos || [])
-        setTotal(data.total)
-        setPage(data.page)
-        setTotalPages(data.totalPages)
-      }
-    } catch {
-      setLoadError('Error al cargar productos inactivos')
-    } finally {
-      setLoading(false)
+      await api.patch(`/productos/${p.id}/${accion}`);
+      mostrarExito(`Producto ${accion}do correctamente`);
+      cargarDatos();
+    } catch (err: any) {
+      mostrarError(err.response?.data?.mensaje || `Error al ${accion} producto`);
     }
-  }, [])
+  };
 
-  const handleReactivar = async (id: number) => {
-    setReactivando(id)
-    try {
-      const res = await fetch(`/api/almacen/productos/${id}/reactivar`, { method: 'PATCH' })
-      if (res.ok) {
-        fetchInactivos(page, limit)
-      } else {
-        const data = await res.json()
-        setLoadError(data.message || 'Error al reactivar')
-      }
-    } catch {
-      setLoadError('Error de conexión')
-    } finally {
-      setReactivando(null)
+  const conteoAlertas = useMemo(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(hoy);
+    limite.setDate(limite.getDate() + 30);
+
+    const idsVencEntrada = new Set(datosVencimiento.filter((d) => d.stock_vencido > 0).map((d) => d.id));
+    const idsPorVencerEntrada = new Set(datosVencimiento.filter((d) => d.stock_por_vencer > 0).map((d) => d.id));
+
+    const idsVencProducto = new Set();
+    const idsPorVencerProducto = new Set();
+    for (const p of productos) {
+      if (!p.fecha_vencimiento) continue;
+      const fv = new Date(p.fecha_vencimiento + 'T00:00:00');
+      if (fv < hoy) idsVencProducto.add(p.id);
+      else if (fv <= limite) idsPorVencerProducto.add(p.id);
     }
-  }
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (tab === 'activos') fetchProductos(1, limit)
-      else fetchInactivos(1, limit)
-    }, 300)
-    return () => clearTimeout(t)
-  }, [q, catFilter, marcaFilter, stockBajo, tab, limit, fetchProductos, fetchInactivos])
+    const stockBajo = productos.filter((p) => esActivo(p) && p.stock <= 5).length;
+    const idsVencidos = new Set(Array.from(idsVencEntrada).concat(Array.from(idsVencProducto)));
+    const idsPorVencer = new Set(Array.from(idsPorVencerEntrada).concat(Array.from(idsPorVencerProducto)));
+    return { stockBajo, idsVencidos, idsPorVencer };
+  }, [productos, datosVencimiento]);
 
-  const handlePageChange = (p: number) => {
-    if (tab === 'activos') fetchProductos(p, limit)
-    else fetchInactivos(p, limit)
-  }
-  const handleLimitChange = (l: number) => {
-    setLimit(l)
-    if (tab === 'activos') fetchProductos(1, l)
-    else fetchInactivos(1, l)
-  }
+  const filtrados = productos.filter((p) => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(hoy);
+    limite.setDate(limite.getDate() + 30);
+    const fvProd = p.fecha_vencimiento ? new Date(p.fecha_vencimiento + 'T00:00:00') : null;
 
-  const validateForm = (): boolean => {
-    const errs: Record<string, string> = {}
-    const stockVal = form.stock.trim()
-    if (stockVal === '') {
-      errs.stock = 'El stock es requerido'
-    } else {
-      const stockNum = Number(stockVal)
-      if (!Number.isInteger(stockNum)) errs.stock = 'El stock debe ser un número entero'
-      else if (stockNum < 0) errs.stock = 'El stock no puede ser negativo'
-    }
-    setFieldErrors(errs)
-    return Object.keys(errs).length === 0
-  }
+    const coincideTexto =
+      p.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      p.marca?.toLowerCase().includes(busqueda.toLowerCase());
+    const prodCategoriaId = p.categoria?.id ?? p.categoria_id;
+    const coincideCategoria =
+      filtroCategoria === 'Todas' || String(prodCategoriaId) === String(filtroCategoria);
+    const coincideEstado =
+      filtroEstado === 'Todos' ||
+      (filtroEstado === 'Activo' && esActivo(p)) ||
+      (filtroEstado === 'Inactivo' && !esActivo(p));
+    const coincideAlerta =
+      filtroAlerta === 'Todos' ||
+      (filtroAlerta === 'Stock bajo' && esActivo(p) && p.stock <= 5) ||
+      (filtroAlerta === 'Vencido' && (conteoAlertas.idsVencidos.has(p.id) || (fvProd && fvProd < hoy))) ||
+      (filtroAlerta === 'Por vencer' && (conteoAlertas.idsPorVencer.has(p.id) || (fvProd && fvProd >= hoy && fvProd <= limite)));
+    return coincideTexto && coincideCategoria && coincideEstado && coincideAlerta;
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError('')
-    if (!validateForm()) return
-    if (editId !== null && typeof editId !== 'number') {
-      setError('Error interno: ID de producto inválido'); return
-    }
-    const url = editId ? `/api/almacen/productos/${editId}` : '/api/almacen/productos'
-    const method = editId ? 'PUT' : 'POST'
-    const body: Record<string, string> = { ...form }
-    if (body.stock === '') body.stock = '0'
-    console.log('[Productos] handleSubmit →', { url, method, editId, body })
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    const data = await res.json()
-    if (!res.ok) { setError(data.message); return }
-    setShowForm(false); setEditId(null)
-    setForm({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '' })
-    setFieldErrors({})
-    fetchProductos(1, limit)
-  }
+  useEffect(() => { setPaginaActual(1); }, [busqueda, filtroCategoria, filtroEstado, filtroAlerta]);
 
-  const openNew = () => {
-    setShowForm(true); setEditId(null)
-    setForm({ codigo: '', nombre: '', marca: '', categoriaId: '', precio: '', stock: '' })
-    setError(''); setFieldErrors({})
-  }
+  const totalPaginas = Math.ceil(filtrados.length / ITEMS_POR_PAGINA);
+  const productosPagina = filtrados.slice(
+    (paginaActual - 1) * ITEMS_POR_PAGINA,
+    paginaActual * ITEMS_POR_PAGINA
+  );
 
-  const openEdit = (p: Producto) => {
-    setForm({
-      codigo: p.codigo, nombre: p.nombre, marca: p.marca || '',
-      categoriaId: String(p.categoria?.id || ''), precio: String(p.precio), stock: String(p.stock),
-    })
-    setEditId(p.id); setShowForm(true)
-  }
+  const stockColor = (stock: number) => {
+    if (stock === 0) return 'bg-red-50';
+    if (stock <= 5) return 'bg-amber-50';
+    return '';
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
-          <HeaderToggle />
-          <h1 className="text-xl font-bold text-gray-800">Productos</h1>
-          <button onClick={openNew}
-            className="ml-auto flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition cursor-pointer">
-            <Plus size={18} /> Nuevo Producto
-          </button>
-        </header>
+    <div className="space-y-6">
+      <Toast mensaje={toast.mensaje} tipo={toast.tipo} visible={toast.visible} onCerrar={cerrar} />
+      <Breadcrumb items={[{ label: 'Inicio', path: '/dashboard' }, { label: 'Productos' }]} />
 
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="flex gap-1 mb-4 border-b border-gray-200">
-            <button onClick={() => { setTab('activos'); setQ(''); setCatFilter(''); setMarcaFilter(''); setStockBajo(false) }}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${tab === 'activos' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-              Activos
+      {(conteoAlertas.stockBajo > 0 || conteoAlertas.idsVencidos.size > 0 || conteoAlertas.idsPorVencer.size > 0) && (
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          {conteoAlertas.stockBajo > 0 && (
+            <button
+              onClick={() => setFiltroAlerta(filtroAlerta === 'Stock bajo' ? 'Todos' : 'Stock bajo')}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                filtroAlerta === 'Stock bajo'
+                  ? 'bg-amber-200 text-amber-900'
+                  : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+              }`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              {conteoAlertas.stockBajo} producto{conteoAlertas.stockBajo !== 1 ? 's' : ''} con stock bajo
             </button>
-            <button onClick={() => setTab('inactivos')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${tab === 'inactivos' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-              Inactivos
-            </button>
-          </div>
-
-          {showForm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold">{editId ? 'Editar' : 'Nuevo'} Producto</h2>
-                  <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded cursor-pointer"><X size={20} /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
-                    <input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                    <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
-                    <input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                    <select value={form.categoriaId} onChange={(e) => setForm({ ...form, categoriaId: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                      <option value="">Sin categoría</option>
-                      {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
-                    <input type="number" step="0.01" value={form.precio} onChange={(e) => setForm({ ...form, precio: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{editId ? 'Stock' : 'Stock inicial'}</label>
-                    <input type="number" value={form.stock} onChange={(e) => {
-                      setForm({ ...form, stock: e.target.value })
-                      if (fieldErrors.stock) setFieldErrors({ ...fieldErrors, stock: '' })
-                    }}
-                      className={`w-full px-3 py-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${fieldErrors.stock ? 'border-red-500' : 'border-gray-300'}`} />
-                    {fieldErrors.stock && <p className="text-red-600 text-sm mt-1">{fieldErrors.stock}</p>}
-                  </div>
-                  {error && <div className="text-red-600 text-sm">{error}</div>}
-                  <div className="flex gap-3">
-                    <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 cursor-pointer">
-                      {editId ? 'Guardar' : 'Crear'}
-                    </button>
-                    <button type="button" onClick={() => setShowForm(false)}
-                      className="px-4 py-2.5 border rounded-lg hover:bg-gray-50 cursor-pointer">Cancelar</button>
-                  </div>
-                </form>
-              </div>
-            </div>
           )}
-
-          <div className="flex flex-wrap gap-2 mb-4 items-center">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input value={q} onChange={(e) => setQ(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border rounded-lg outline-none" placeholder="Buscar productos..." />
-            </div>
-            <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}
-              className="px-3 py-2.5 border rounded-lg outline-none">
-              <option value="">Todas las categorías</option>
-              {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-            <select value={marcaFilter} onChange={(e) => setMarcaFilter(e.target.value)}
-              className="px-3 py-2.5 border rounded-lg outline-none">
-              <option value="">Todas las marcas</option>
-              {marcas.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-            <button onClick={() => setStockBajo(!stockBajo)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition cursor-pointer ${
-                stockBajo ? 'bg-yellow-100 border-yellow-400 text-yellow-800' : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}>
-              <span>⚠️</span> Solo stock bajo
+          {conteoAlertas.idsVencidos.size > 0 && (
+            <button
+              onClick={() => setFiltroAlerta(filtroAlerta === 'Vencido' ? 'Todos' : 'Vencido')}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                filtroAlerta === 'Vencido'
+                  ? 'bg-red-200 text-red-900'
+                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+              }`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              {conteoAlertas.idsVencidos.size} producto{conteoAlertas.idsVencidos.size !== 1 ? 's' : ''} vencido{conteoAlertas.idsVencidos.size !== 1 ? 's' : ''}
             </button>
-          </div>
-
-          {loading ? (
-            <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
-          ) : loadError ? (
-            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">{loadError}</div>
-          ) : tab === 'activos' ? (
-            <>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Código</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Cód. Barras</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Nombre</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Marca</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Categoría</th>
-                      <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Precio</th>
-                      <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Stock</th>
-                      <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {productos.length === 0 ? (
-                      <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-500">No hay productos activos</td></tr>
-                    ) : productos.map((p) => (
-                      <tr key={p.id} className={`hover:bg-gray-50 ${p.alerta_stock ? 'bg-yellow-50' : ''}`}>
-                        <td className="px-4 py-3 text-gray-600 text-sm">{p.codigo}</td>
-                        <td className="px-4 py-3 text-gray-600 text-sm font-mono">{p.codigoBarras || '-'}</td>
-                        <td className="px-4 py-3 font-medium">
-                          {p.alerta_stock && <span className="mr-1">⚠️</span>}
-                          {p.nombre}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">{p.marca || '-'}</td>
-                        <td className="px-4 py-3">
-                          {p.categoria && <span className="text-xs px-2 py-0.5 rounded bg-gray-100">{p.categoria.nombre}</span>}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-blue-600">S/ {Number(p.precio).toFixed(2)}</td>
-                        <td className="px-4 py-3 text-right">
-                          <span className={`font-medium ${p.stock <= 5 ? 'text-red-600' : 'text-green-600'}`}>{p.stock}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-gray-100 rounded cursor-pointer"><Edit2 size={16} /></button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-              </div>
-
-              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
-                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
-            </>
-          ) : (
-            <>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Código</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Cód. Barras</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Nombre</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Marca</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Categoría</th>
-                      <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Precio</th>
-                      <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Stock</th>
-                      <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {productos.length === 0 ? (
-                      <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-500">No hay productos inactivos</td></tr>
-                    ) : productos.map((p) => (
-                      <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-gray-600 text-sm">{p.codigo}</td>
-                        <td className="px-4 py-3 text-gray-600 text-sm font-mono">{p.codigoBarras || '-'}</td>
-                        <td className="px-4 py-3 font-medium">{p.nombre}</td>
-                        <td className="px-4 py-3 text-gray-600">{p.marca || '-'}</td>
-                        <td className="px-4 py-3">
-                          {p.categoria && <span className="text-xs px-2 py-0.5 rounded bg-gray-100">{p.categoria.nombre}</span>}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-blue-600">S/ {Number(p.precio).toFixed(2)}</td>
-                        <td className="px-4 py-3 text-right">{p.stock}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button onClick={() => handleReactivar(p.id)} disabled={reactivando === p.id}
-                            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:bg-green-400 transition cursor-pointer">
-                            {reactivando === p.id ? '...' : 'Reactivar'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-              </div>
-
-              <Pagination page={page} totalPages={totalPages} total={total} limit={limit}
-                onPageChange={handlePageChange} onLimitChange={handleLimitChange} />
-            </>
           )}
-        </main>
+          {conteoAlertas.idsPorVencer.size > 0 && (
+            <button
+              onClick={() => setFiltroAlerta(filtroAlerta === 'Por vencer' ? 'Todos' : 'Por vencer')}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                filtroAlerta === 'Por vencer'
+                  ? 'bg-yellow-200 text-yellow-900'
+                  : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+              }`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              {conteoAlertas.idsPorVencer.size} producto{conteoAlertas.idsPorVencer.size !== 1 ? 's' : ''} por vencer
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-800">Productos</h1>
+        <button
+          onClick={abrirCrear}
+          className="flex items-center gap-2 rounded-lg bg-[#6366f1] px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-600"
+        >
+          <Plus className="h-4 w-4" />
+          Nuevo Producto
+        </button>
       </div>
+
+      <div className="flex flex-wrap gap-4">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o marca..."
+            className="w-full rounded-lg border border-gray-200 px-4 py-2 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+
+        <select
+          value={filtroCategoria}
+          onChange={(e) => setFiltroCategoria(e.target.value)}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        >
+          <option value="Todas">Todas las categorías</option>
+          {categorias.map((c) => (
+            <option key={c.id} value={c.id}>{c.nombre}</option>
+          ))}
+        </select>
+
+        <select
+          value={filtroEstado}
+          onChange={(e) => setFiltroEstado(e.target.value)}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        >
+          <option value="Todos">Todos los estados</option>
+          <option value="Activo">Activo</option>
+          <option value="Inactivo">Inactivo</option>
+        </select>
+
+        <select
+          value={filtroAlerta}
+          onChange={(e) => setFiltroAlerta(e.target.value)}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        >
+          <option value="Todos">Sin filtro</option>
+          <option value="Stock bajo">Stock bajo (&le;5)</option>
+          <option value="Vencido">Vencido</option>
+          <option value="Por vencer">Por vencer</option>
+        </select>
+      </div>
+
+      {loading ? (
+        <Spinner texto="Cargando productos..." />
+      ) : error ? (
+        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
+      ) : filtrados.length === 0 ? (
+        <div className="flex h-64 items-center justify-center text-sm text-gray-400">
+          No hay productos registrados
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-[#6366f1] text-white">
+                  <th className="px-4 py-3 font-medium">Nombre</th>
+                  <th className="px-4 py-3 font-medium">Marca</th>
+                  <th className="px-4 py-3 font-medium">Categoría</th>
+                  <th className="px-4 py-3 font-medium">Precio</th>
+                  <th className="px-4 py-3 font-medium">Stock</th>
+                  <th className="px-4 py-3 font-medium">Vencimiento</th>
+                  <th className="px-4 py-3 font-medium">Estado</th>
+                  <th className="px-4 py-3 font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productosPagina.map((p: any, i: number) => (
+                  <tr key={p.id} className={`${stockColor(p.stock)} ${i % 2 === 0 ? 'bg-white' : ''}`}>
+                    <td className="px-4 py-3 text-gray-800">{p.nombre}</td>
+                    <td className="px-4 py-3 text-gray-500">{p.marca}</td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {p.categoria?.nombre || categorias.find((c) => String(c.id) === String(p.categoria?.id))?.nombre || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800">{formatMoneda(p.precio)}</td>
+                    <td className="px-4 py-3 text-gray-600">{formatStock(p.stock)}</td>
+                    <td className="px-4 py-3 text-gray-600">{p.fecha_vencimiento ? formatFecha(p.fecha_vencimiento) : '-'}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          esActivo(p)
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}
+                      >
+                        {esActivo(p) ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => abrirEditar(p)}
+                          className="rounded-lg p-1.5 text-[#6366f1] transition-colors hover:bg-indigo-50"
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setConfirmarEstado(p)}
+                          className={`rounded-lg p-1.5 transition-colors ${
+                            esActivo(p)
+                              ? 'text-red-500 hover:bg-red-50'
+                              : 'text-green-500 hover:bg-green-50'
+                          }`}
+                          title={esActivo(p) ? 'Desactivar' : 'Reactivar'}
+                        >
+                          {esActivo(p) ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                        {puedeDarBaja && (
+                          <button
+                            onClick={() => setModalBaja(p)}
+                            className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
+                            title="Dar de baja"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                        {esActivo(p) && p.stock <= 5 && (
+                          <button
+                            onClick={() => setModalSolicitud(p)}
+                            className="rounded-lg p-1.5 text-amber-600 transition-colors hover:bg-amber-50"
+                            title="Solicitar reposición"
+                          >
+                            <Package className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6 text-xs text-gray-500">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded-sm bg-red-100 border border-red-200" />
+                Sin stock
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded-sm bg-amber-100 border border-amber-200" />
+                Stock crítico (&le;5)
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded-sm bg-white border border-gray-300" />
+                Stock normal
+              </div>
+            </div>
+
+            {totalPaginas > 1 && (
+              <div className="flex items-center gap-2 text-sm">
+                <button
+                  onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+                  disabled={paginaActual === 1}
+                  className="rounded-lg border border-gray-200 px-3 py-1 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Anterior
+                </button>
+                <span className="px-2 text-gray-500">
+                  Pág. {paginaActual} de {totalPaginas}
+                </span>
+                <button
+                  onClick={() => setPaginaActual((p) => Math.min(totalPaginas, p + 1))}
+                  disabled={paginaActual === totalPaginas}
+                  className="rounded-lg border border-gray-200 px-3 py-1 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      <ModalProducto
+        abierto={modalAbierto}
+        onCerrar={() => { setModalAbierto(false); setProductoEditando(null); }}
+        onGuardar={handleGuardar}
+        productoEditando={productoEditando}
+        categorias={categorias}
+      />
+
+      <ModalBaja
+        abierto={!!modalBaja}
+        onCerrar={() => setModalBaja(null)}
+        producto={modalBaja}
+        onRegistrada={() => {
+          setModalBaja(null);
+          mostrarExito('Baja registrada correctamente');
+          cargarDatos();
+        }}
+      />
+
+      <ModalSolicitud
+        abierto={!!modalSolicitud}
+        onCerrar={() => setModalSolicitud(null)}
+        producto={modalSolicitud}
+        proveedores={proveedores}
+        onCreada={() => {
+          setModalSolicitud(null);
+          mostrarExito('Solicitud de reposición creada');
+          cargarDatos();
+        }}
+      />
+
+      <ConfirmDialog
+        abierto={!!confirmarEstado}
+        titulo={confirmarEstado ? `${esActivo(confirmarEstado) ? 'Desactivar' : 'Reactivar'} producto` : ''}
+        mensaje={confirmarEstado ? `¿${esActivo(confirmarEstado) ? 'Desactivar' : 'Reactivar'} producto "${confirmarEstado.nombre}"?` : ''}
+        onConfirmar={toggleEstado}
+        onCancelar={() => setConfirmarEstado(null)}
+        colorConfirmar={confirmarEstado && esActivo(confirmarEstado) ? '#ef4444' : '#10b981'}
+      />
     </div>
-  )
+  );
 }
