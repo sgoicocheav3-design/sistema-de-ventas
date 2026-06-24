@@ -40,10 +40,15 @@ export default function ComprobantePago({ venta, empresa, onVolver, onNuevaVenta
       style.id = 'thermal-print-style'
       style.textContent = `
         @page { size: 80mm auto; margin: 0; }
-        body { width: 80mm; font-size: 10px; font-family: monospace; }
-        #receipt-print-area { width: 72mm; margin: 0 auto; padding: 4mm; }
-        .no-print { display: none !important; }
-        table { font-size: 9px; }
+        @media print {
+          body { width: 80mm !important; margin: 0 !important; padding: 0 !important; }
+          #receipt-print-area { width: 80mm !important; margin: 0 !important; padding: 4mm !important; position: absolute !important; top: 0 !important; left: 0 !important; font-size: 10px !important; font-family: monospace !important; }
+          #receipt-print-area table { font-size: 9px !important; }
+        }
+        @media screen {
+          #receipt-print-area { width: 80mm !important; margin: 0 auto !important; font-size: 10px !important; font-family: monospace !important; border: 1px dashed #ccc; padding: 4mm; }
+          #receipt-print-area table { font-size: 9px !important; }
+        }
       `
       document.head.appendChild(style)
     } else {
