@@ -540,11 +540,7 @@ export default function POSPage() {
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none"
               >
                 <option value="EFECTIVO">Efectivo</option>
-                <option value="YAPE">Yape</option>
-                <option value="PLIN">Plin</option>
-                <option value="TARJETA">Tarjeta</option>
-                <option value="CHEQUE">Cheque</option>
-                <option value="TRANSFERENCIA">Transferencia</option>
+                <option value="YAPE">Yape (QR Mercado Pago)</option>
               </select>
 
               {metodoPago === 'EFECTIVO' && (
