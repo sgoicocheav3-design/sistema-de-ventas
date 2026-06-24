@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
         { nombre: { contains: q.trim(), mode: 'insensitive' } },
         { marca: { contains: q.trim(), mode: 'insensitive' } },
         { codigo: { contains: q.trim(), mode: 'insensitive' } },
+        { codigoBarras: { contains: q.trim(), mode: 'insensitive' } },
       ]
     }
     if (categoria) where.categoriaId = parseInt(categoria)
