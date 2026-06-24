@@ -1,716 +1,965 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useAuth } from '@/lib/AuthContext'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, Search, Pencil, EyeOff, Eye, X, Trash2, AlertTriangle, Loader2, Package } from 'lucide-react'
 import Sidebar, { HeaderToggle } from '@/components/Sidebar'
-import ComprobantePago from '@/components/ComprobantePago'
-import { Search, Plus, Minus, Trash2, ShoppingCart, FileText, Package, ChevronDown, ChevronUp, ScanLine } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
-import { calcularTotalesConIgvIncluido } from '@/lib/utils'
-import { useDebounce } from '@/lib/hooks'
-import type { VentaData } from '@/components/types'
+import { useAuth } from '@/lib/AuthContext'
+
+interface Categoria {
+  id: number
+  nombre: string
+}
 
 interface Producto {
   id: number
   nombre: string
-  marca: string
+  marca: string | null
   precio: number
   stock: number
-  categoria: { id: number; nombre: string }
+  activo: boolean
+  codigoBarras?: string | null
+  fechaVencimiento?: string | null
+  categoria?: { id: number; nombre: string } | null
+  categoriaId?: number | null
 }
 
-interface CarritoItem {
-  productoId: number
-  nombre: string
-  precio: number
-  cantidad: number
+interface ToastState {
+  mensaje: string
+  tipo: 'exito' | 'error'
 }
 
-export default function POSPage() {
-  const { user } = useAuth()
-  const [q, setQ] = useState('')
-  const [barcodeInput, setBarcodeInput] = useState('')
-  const [categoria, setCategoria] = useState('')
-  const [limite, setLimite] = useState('50')
-  const [productos, setProductos] = useState<Producto[]>([])
-  const [carrito, setCarrito] = useState<CarritoItem[]>([])
-  const [metodoPago, setMetodoPago] = useState('EFECTIVO')
-  const [montoRecibido, setMontoRecibido] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [resultado, setResultado] = useState<VentaData | null>(null)
-  const [showReceipt, setShowReceipt] = useState(false)
-  const [empresaData, setEmpresaData] = useState<Record<string, string>>({})
-  const [qrModal, setQrModal] = useState<{ url: string; ventaId: number; total: number } | null>(null)
-  const [qrEstado, setQrEstado] = useState<string>('PENDIENTE')
-  const [qrStatusDetail, setQrStatusDetail] = useState<string | null>(null)
-  const [qrError, setQrError] = useState<string | null>(null)
-  const [categorias, setCategorias] = useState<Array<{ id: number; nombre: string }>>([])
-  const [showProductList, setShowProductList] = useState(false)
-  const [searchError, setSearchError] = useState('')
-  const [submitError, setSubmitError] = useState('')
-  const [comprobante, setComprobante] = useState('BOLETA_SIMPLE')
-  const [clienteDni, setClienteDni] = useState('')
-  const [facturaRuc, setFacturaRuc] = useState('')
-  const [facturaRazonSocial, setFacturaRazonSocial] = useState('')
-  const [facturaDireccion, setFacturaDireccion] = useState('')
-  const barcodeRef = useRef<HTMLInputElement>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const mountedRef = useRef(true)
+interface ModalProductoProps {
+  abierto: boolean
+  onCerrar: () => void
+  onGuardar: () => void
+  productoEditando: Producto | null
+  categorias: Categoria[]
+}
 
-  const fetchStatus = useCallback(async (ventaId: number) => {
-    if (!mountedRef.current) return
+function ModalProducto({ abierto, onCerrar, onGuardar, productoEditando, categorias }: ModalProductoProps) {
+  const [nombre, setNombre] = useState('')
+  const [marca, setMarca] = useState('')
+  const [categoriaId, setCategoriaId] = useState('')
+  const [precio, setPrecio] = useState('')
+  const [stock, setStock] = useState('')
+  const [codigoBarras, setCodigoBarras] = useState('')
+  const [fechaVencimiento, setFechaVencimiento] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const esCreacion = !productoEditando
+
+  useEffect(() => {
+    if (abierto) {
+      if (productoEditando) {
+        setNombre(productoEditando.nombre || '')
+        setMarca(productoEditando.marca || '')
+        setCategoriaId(String(productoEditando.categoria?.id ?? productoEditando.categoriaId ?? ''))
+        setPrecio(String(productoEditando.precio ?? ''))
+        setStock(String(productoEditando.stock ?? ''))
+        setCodigoBarras(productoEditando.codigoBarras ?? '')
+        setFechaVencimiento(
+          productoEditando.fechaVencimiento
+            ? new Date(productoEditando.fechaVencimiento).toISOString().split('T')[0]
+            : ''
+        )
+      } else {
+        const fv = new Date()
+        fv.setFullYear(fv.getFullYear() + 2)
+        setNombre('')
+        setMarca('')
+        setCategoriaId(categorias.length > 0 ? String(categorias[0].id) : '')
+        setPrecio('')
+        setStock('')
+        setCodigoBarras('')
+        setFechaVencimiento(fv.toISOString().split('T')[0])
+      }
+      setError('')
+    }
+  }, [abierto, productoEditando, categorias])
+
+  if (!abierto) return null
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
     try {
-      const res = await fetch(`/api/ventas/${ventaId}/status`, { cache: 'no-store' })
-      if (!res.ok) return
-      const data = await res.json()
-      if (!mountedRef.current) return
-
-      setQrEstado(data.estado)
-      setQrStatusDetail(data.statusDetail || null)
-      setQrError(null)
-
-      if (data.estado === 'COMPLETADA') {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
+      if (esCreacion) {
+        const codigo = 'PROD-' + Date.now()
+        const payload: Record<string, unknown> = {
+          codigo,
+          nombre,
+          marca: marca || undefined,
+          categoriaId: categoriaId || undefined,
+          precio: parseFloat(precio),
+          stock: parseInt(stock, 10) || 0,
         }
-        const fullRes = await fetch(`/api/ventas/${ventaId}`)
-        if (fullRes.ok) {
-          const fullData = await fullRes.json()
-          setResultado(fullData)
-        } else {
-          setResultado({ id: data.id, numero: data.numero, vuelto: 0, total: 0, subtotal: 0, igv: 0, metodoPago: '', montoRecibido: 0, estado: 'COMPLETADA', creadoEn: '', usuario: { id: 0, nombre: '' }, cliente: null, detalles: [] })
-        }
-        setQrModal(null)
-        setCarrito([])
-        setMontoRecibido('')
-        fetch('/api/ventas/productos/buscar?limit=50').then(r => r.ok && r.json()).then(data => {
-          if (data?.productos) setProductos(data.productos)
-        }).catch(() => {})
-      } else if (data.estado === 'RECHAZADO' || data.estado === 'CANCELADO') {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
-        }
-      }
-    } catch {
-      if (mountedRef.current) {
-        setQrError('Error al verificar pago')
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    mountedRef.current = true
-    return () => { mountedRef.current = false }
-  }, [])
-
-  useEffect(() => {
-    if (!qrModal) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-      setQrEstado('PENDIENTE')
-      setQrStatusDetail(null)
-      setQrError(null)
-      return
-    }
-
-    setQrEstado('PENDIENTE')
-    setQrStatusDetail(null)
-    setQrError(null)
-
-    fetchStatus(qrModal.ventaId)
-    intervalRef.current = setInterval(() => fetchStatus(qrModal.ventaId), 3000)
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && qrModal) {
-        fetchStatus(qrModal.ventaId)
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-      document.removeEventListener('visibilitychange', handleVisibility)
-    }
-  }, [qrModal, fetchStatus])
-
-  useEffect(() => {
-    fetch('/api/categorias')
-      .then((r) => {
-        if (!r.ok) throw new Error('Error en la respuesta')
-        return r.json()
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setCategorias(data)
-        }
-      })
-      .catch(() => {})
-  }, [])
-
-  const debouncedQ = useDebounce(q, 250)
-
-  const search = useCallback(async (query: string, cat: string, limit: string) => {
-    setSearching(true)
-    setSearchError('')
-    try {
-      const params = new URLSearchParams()
-      if (query.trim()) params.set('q', query)
-      if (cat) params.set('categoria', cat)
-      if (limit) params.set('limit', limit)
-      const res = await fetch(`/api/ventas/productos/buscar?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setProductos(data.productos || [])
-      }
-      else setSearchError('Error al buscar productos')
-    } catch {
-      setSearchError('Error de conexión')
-    } finally {
-      setSearching(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (showProductList) {
-      search(debouncedQ, categoria, limite)
-    }
-  }, [debouncedQ, categoria, limite, search, showProductList])
-
-  const handleBarcodeSearch = async (barcode: string) => {
-    if (!barcode.trim()) return
-    setSearching(true)
-    try {
-      const res = await fetch(`/api/ventas/productos/buscar?q=${encodeURIComponent(barcode)}&limit=5`)
-      if (res.ok) {
-        const data = await res.json()
-        const found = data.productos?.[0]
-        if (found && found.stock > 0) {
-          addToCart(found)
-          setBarcodeInput('')
-        } else if (found && found.stock === 0) {
-          setSearchError('Producto sin stock')
-        } else {
-          setSearchError('Producto no encontrado')
-        }
-      }
-    } catch {
-      setSearchError('Error al buscar')
-    } finally {
-      setSearching(false)
-      barcodeRef.current?.focus()
-    }
-  }
-
-  const addToCart = (p: Producto) => {
-    setCarrito((prev) => {
-      const existing = prev.find((i) => i.productoId === p.id)
-      if (existing) {
-        if (existing.cantidad >= p.stock) return prev
-        return prev.map((i) => i.productoId === p.id ? { ...i, cantidad: i.cantidad + 1 } : i)
-      }
-      return [...prev, { productoId: p.id, nombre: p.nombre, precio: Number(p.precio), cantidad: 1 }]
-    })
-  }
-
-  const updateCantidad = (id: number, delta: number) => {
-    setCarrito((prev) => prev.map((i) => {
-      if (i.productoId !== id) return i
-      const nueva = i.cantidad + delta
-      return nueva <= 0 ? i : { ...i, cantidad: nueva }
-    }).filter((i) => i.cantidad > 0))
-  }
-
-  const removeFromCart = (id: number) => {
-    setCarrito((prev) => prev.filter((i) => i.productoId !== id))
-  }
-
-  const clearCart = () => {
-    setCarrito([])
-    setSubmitError('')
-  }
-
-  const { total, subtotalSinIgv, igvIncluido } = calcularTotalesConIgvIncluido(
-    carrito.map((i) => ({ precio: i.precio, cantidad: i.cantidad }))
-  )
-  const recibido = parseFloat(montoRecibido) || 0
-  const vuelto = metodoPago === 'EFECTIVO' ? Math.max(0, recibido - total) : 0
-
-  const handleSubmit = async () => {
-    if (carrito.length === 0) return
-
-    if (comprobante === 'FACTURA') {
-      if (!facturaRuc.trim() || !facturaRazonSocial.trim() || !facturaDireccion.trim()) {
-        setSubmitError('Completa RUC, Razón Social y Dirección para emitir factura')
-        return
-      }
-    }
-
-    setSubmitting(true)
-    setSubmitError('')
-    try {
-      const res = await fetch('/api/ventas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: carrito.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
-          metodoPago,
-          montoRecibido: metodoPago === 'EFECTIVO' ? montoRecibido : total.toFixed(2),
-          dniCliente: comprobante === 'BOLETA_DNI' && clienteDni.trim() ? clienteDni.trim() : undefined,
-          rucCliente: comprobante === 'FACTURA' ? facturaRuc.trim() : undefined,
-          razonSocial: comprobante === 'FACTURA' ? facturaRazonSocial.trim() : undefined,
-          direccion: comprobante === 'FACTURA' ? facturaDireccion.trim() : undefined,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message || 'Error al procesar venta')
-
-      if (data.qrData) {
-        setQrModal({ url: data.qrData, ventaId: data.id, total: Number(data.total) })
-        setSubmitting(false)
-        return
-      }
-
-      setResultado(data as VentaData)
-      setCarrito([])
-      setMontoRecibido('')
-      setClienteDni('')
-      setFacturaRuc('')
-      setFacturaRazonSocial('')
-      setFacturaDireccion('')
-      if (showProductList) search(q, categoria, limite)
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Error al procesar venta')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  useEffect(() => {
-    if (showReceipt && resultado) {
-      fetch(`/api/ventas/${resultado.id}/comprobante`)
-        .then((r) => r.ok && r.json())
-        .then((data) => {
-          if (data?.empresa) setEmpresaData(data.empresa)
+        const res = await fetch('/api/almacen/productos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         })
-        .catch(() => {})
+        if (!res.ok) {
+          const errData = await res.json()
+          throw new Error(errData.message || 'Error al crear producto')
+        }
+      } else {
+        const payload: Record<string, unknown> = {
+          nombre,
+          marca: marca || undefined,
+          categoriaId: categoriaId || undefined,
+          precio: parseFloat(precio),
+        }
+        if (productoEditando.stock !== undefined) {
+          payload.stock = parseInt(stock, 10)
+        }
+        const res = await fetch(`/api/almacen/productos/${productoEditando.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.message || 'Error al actualizar producto')
+        }
+      }
+      onGuardar()
+    } catch (err: unknown) {
+      setError((err as { message?: string })?.message || 'Error al guardar')
+    } finally {
+      setLoading(false)
     }
-  }, [showReceipt, resultado])
-
-  if (qrModal) {
-    const estadoFinal = qrEstado === 'COMPLETADA' || qrEstado === 'RECHAZADO' || qrEstado === 'CANCELADO'
-
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Paga con Yape o Mercado Pago</h2>
-          <p className="text-gray-500 mb-6">Total: S/ {qrModal.total.toFixed(2)}</p>
-          {!estadoFinal && (
-            <div className="flex justify-center mb-6">
-              <QRCodeSVG value={qrModal.url} size={200} />
-            </div>
-          )}
-
-          {qrEstado === 'PENDIENTE' && (
-            <div className="flex items-center justify-center gap-2 text-blue-600 mb-6">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              <span className="font-medium">Escanea este código QR para pagar...</span>
-            </div>
-          )}
-          {qrEstado === 'PROCESANDO' && (
-            <div className="flex items-center justify-center gap-2 text-yellow-600 mb-6">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600"></div>
-              <span className="font-medium">Confirmando pago...</span>
-            </div>
-          )}
-          {qrEstado === 'COMPLETADA' && (
-            <div className="text-green-600 mb-6">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <ShoppingCart className="text-green-600" size={24} />
-              </div>
-              <p className="text-lg font-bold">Pago aprobado</p>
-              <p className="text-sm text-gray-500">Tu compra se registró correctamente.</p>
-            </div>
-          )}
-          {qrEstado === 'RECHAZADO' && (
-            <div className="text-red-600 mb-6">
-              <p className="text-lg font-bold">El pago fue rechazado</p>
-              <p className="text-sm text-gray-500">Puedes intentarlo nuevamente.</p>
-            </div>
-          )}
-          {qrEstado === 'CANCELADO' && (
-            <div className="text-gray-600 mb-6">
-              <p className="text-lg font-bold">El pago fue cancelado</p>
-            </div>
-          )}
-          {qrError && !estadoFinal && (
-            <div className="text-gray-500 mb-4">
-              <p className="text-sm">{qrError}</p>
-            </div>
-          )}
-
-          {!estadoFinal && (
-            <div className="flex flex-col gap-2">
-              <button onClick={() => fetchStatus(qrModal.ventaId)}
-                className="w-full px-4 border border-blue-600 text-blue-600 rounded-lg py-2.5 hover:bg-blue-50 transition cursor-pointer">
-                Verificar pago
-              </button>
-              <button onClick={() => setQrModal(null)}
-                className="w-full px-4 border border-gray-300 rounded-lg py-2.5 text-gray-600 hover:bg-gray-50 transition cursor-pointer">
-                Cancelar
-              </button>
-            </div>
-          )}
-
-          {qrEstado === 'RECHAZADO' && (
-            <button onClick={() => setQrModal(null)}
-              className="w-full px-4 bg-blue-600 text-white rounded-lg py-2.5 hover:bg-blue-700 transition cursor-pointer">
-              Intentar nuevamente
-            </button>
-          )}
-          {qrEstado === 'CANCELADO' && (
-            <button onClick={() => setQrModal(null)}
-              className="w-full px-4 bg-blue-600 text-white rounded-lg py-2.5 hover:bg-blue-700 transition cursor-pointer">
-              Volver
-            </button>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  if (showReceipt && resultado) {
-    return (
-      <ComprobantePago
-        venta={resultado}
-        empresa={empresaData}
-        onVolver={() => setShowReceipt(false)}
-        onNuevaVenta={() => { setResultado(null); setShowReceipt(false); setClienteDni(''); setFacturaRuc(''); setFacturaRazonSocial(''); setFacturaDireccion('') }}
-      />
-    )
-  }
-
-  if (resultado) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <ShoppingCart className="text-green-600" size={32} />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Venta Exitosa</h2>
-          <p className="text-gray-500 mb-1">N° {resultado.numero}</p>
-          {resultado.vuelto > 0 && (
-            <p className="text-lg font-semibold text-green-600 mb-4">
-              Vuelto: S/ {Number(resultado.vuelto).toFixed(2)}
-            </p>
-          )}
-          <div className="flex flex-col gap-3">
-            <button onClick={() => { setResultado(null); setClienteDni(''); setFacturaRuc(''); setFacturaRazonSocial(''); setFacturaDireccion('') }}
-              className="w-full bg-violet-600 hover:bg-violet-700 text-white py-2.5 rounded-lg transition cursor-pointer">
-              Nueva Venta
-            </button>
-            <button onClick={() => setShowReceipt(true)}
-              className="w-full flex items-center justify-center gap-2 border border-violet-600 text-violet-600 hover:bg-violet-50 py-2.5 rounded-lg transition cursor-pointer">
-              <FileText size={18} /> Ver Comprobante
-            </button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-gray-50 flex">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-h-0">
-        <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 shrink-0">
-          <HeaderToggle />
-          <div className="flex-1" />
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-800">{user?.nombre || 'Usuario'}</p>
-              <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">{user?.rol || '—'}</span>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-violet-600 text-white flex items-center justify-center text-sm font-bold">
-              {(user?.nombre || 'U').charAt(0)}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800">
+            {esCreacion ? 'Nuevo Producto' : 'Editar Producto'}
+          </h2>
+          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Nombre</label>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Marca</label>
+            <input
+              type="text"
+              value={marca}
+              onChange={(e) => setMarca(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Categoría</label>
+            <select
+              value={categoriaId}
+              onChange={(e) => setCategoriaId(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="">Seleccionar...</option>
+              {categorias.map((c: Categoria) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Precio</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">S./</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={precio}
+                onChange={(e) => setPrecio(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-200 px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
             </div>
           </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Código de Barras</label>
+            <input
+              type="text"
+              value={codigoBarras}
+              onChange={(e) => setCodigoBarras(e.target.value)}
+              placeholder="Opcional"
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+
+          {esCreacion && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Stock</label>
+              <input
+                type="number"
+                min="0"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Fecha de Vencimiento</label>
+            <input
+              type="date"
+              value={fechaVencimiento}
+              onChange={(e) => setFechaVencimiento(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            {esCreacion && (
+              <p className="mt-1 text-xs text-gray-400">Prellenado con +2 años por defecto</p>
+            )}
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-200 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex items-center gap-2 rounded-lg bg-[#6366f1] px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-600 disabled:opacity-70 cursor-pointer"
+            >
+              {loading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+interface ModalSolicitudProps {
+  abierto: boolean
+  onCerrar: () => void
+  producto: Producto | null
+  proveedores: unknown[]
+  onCreada: () => void
+}
+
+function ModalSolicitud({ abierto, onCerrar, producto, proveedores, onCreada }: ModalSolicitudProps) {
+  const [cantidad, setCantidad] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (abierto && producto) {
+      setCantidad('')
+      setError('')
+    }
+  }, [abierto, producto])
+
+  if (!abierto || !producto) return null
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEnviando(true)
+    setError('')
+    try {
+      const res = await fetch('/api/almacen/solicitudes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [{ productoId: producto!.id, cantidad_solicitada: parseInt(cantidad, 10) }],
+        }),
+      })
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.message || 'Error al crear solicitud')
+      }
+      onCreada()
+    } catch (err: unknown) {
+      setError((err as { message?: string })?.message || 'Error al crear solicitud')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCerrar}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800">Solicitar Reposición</h2>
+          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="mb-4 space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
+          <p><span className="font-medium text-gray-700">Producto:</span> {producto.nombre} - {producto.marca}</p>
+          <p><span className="font-medium text-gray-700">Stock actual:</span> {producto.stock} und(s)</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Cantidad a solicitar</label>
+            <input
+              type="number" min="1" value={cantidad}
+              onChange={(e) => setCantidad(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+          {error && <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</div>}
+          <div className="flex justify-end">
+            <button
+              type="submit" disabled={enviando}
+              className="flex items-center gap-2 rounded-lg bg-[#6366f1] px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-600 disabled:opacity-70 cursor-pointer"
+            >
+              {enviando && <Loader2 className="h-4 w-4 animate-spin" />}
+              Crear Solicitud
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+interface ModalBajaProps {
+  abierto: boolean
+  onCerrar: () => void
+  producto: Producto | null
+  onRegistrada: () => void
+}
+
+function ModalBaja({ abierto, onCerrar, producto, onRegistrada }: ModalBajaProps) {
+  const [cantidad, setCantidad] = useState('')
+  const [motivo, setMotivo] = useState('Vencido')
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (abierto && producto) {
+      setCantidad('1')
+      setMotivo('Vencido')
+      setError('')
+    }
+  }, [abierto, producto])
+
+  if (!abierto || !producto) return null
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const c = parseInt(cantidad, 10)
+    if (!c || c <= 0) { setError('La cantidad debe ser mayor a 0'); return }
+    if (c > (producto!.stock || 0)) { setError(`Stock insuficiente (disponible: ${producto!.stock})`); return }
+    setEnviando(true)
+    setError('')
+    try {
+      const res = await fetch('/api/almacen/bajas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productoId: producto!.id, cantidad: c, motivo }),
+      })
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.message || 'Error al registrar baja')
+      }
+      onRegistrada()
+    } catch (err: unknown) {
+      setError((err as { message?: string })?.message || 'Error al registrar baja')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800">Dar de Baja</h2>
+          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mb-4 space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
+          <p><span className="font-medium text-gray-700">Producto:</span> {producto.nombre}</p>
+          <p><span className="font-medium text-gray-700">Stock actual:</span> {producto.stock} und(s)</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Cantidad</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={1}
+                max={producto.stock}
+                value={cantidad}
+                onChange={(e) => setCantidad(e.target.value)}
+                required
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+              <button
+                type="button"
+                onClick={() => setCantidad(String(producto.stock))}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 cursor-pointer"
+              >
+                Todo
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Motivo</label>
+            <select
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="Vencido">Vencido</option>
+              <option value="Dañado">Dañado</option>
+              <option value="Rotura">Rotura</option>
+              <option value="Caducado">Caducado</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          {error && <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</div>}
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-200 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={enviando}
+              className="flex items-center gap-2 rounded-lg bg-[#ef4444] px-4 py-2 text-sm text-white transition-colors hover:bg-red-600 disabled:opacity-70 cursor-pointer"
+            >
+              {enviando && <Loader2 className="h-4 w-4 animate-spin" />}
+              Registrar Baja
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function formatFecha(fecha: string | null | undefined) {
+  if (!fecha) return '-'
+  const d = new Date(fecha)
+  return d.toLocaleDateString('es-PE', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
+
+export default function ProductosPage() {
+  const { user } = useAuth()
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [productoEditando, setProductoEditando] = useState<Producto | null>(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroCategoria, setFiltroCategoria] = useState('Todas')
+  const [filtroEstado, setFiltroEstado] = useState('Todos')
+  const [confirmarEstado, setConfirmarEstado] = useState<Producto | null>(null)
+  const [modalBaja, setModalBaja] = useState<Producto | null>(null)
+  const [modalSolicitud, setModalSolicitud] = useState<Producto | null>(null)
+  const [proveedores, setProveedores] = useState<unknown[]>([])
+  const [filtroAlerta, setFiltroAlerta] = useState('Todos')
+  const [paginaActual, setPaginaActual] = useState(1)
+  const [toast, setToast] = useState<ToastState | null>(null)
+  const ITEMS_POR_PAGINA = 12
+  const rol = user?.rol
+  const puedeDarBaja = rol === 'ALMACENERO' || rol === 'ADMIN'
+
+  const mostrarExito = (mensaje: string) => {
+    setToast({ mensaje, tipo: 'exito' })
+    setTimeout(() => setToast(null), 3000)
+  }
+  const mostrarError = (mensaje: string) => {
+    setToast({ mensaje, tipo: 'error' })
+    setTimeout(() => setToast(null), 3000)
+  }
+  const cerrarToast = () => setToast(null)
+
+  const cargarDatos = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const [resProductos, resCategorias, resProv] = await Promise.all([
+        fetch('/api/almacen/productos?limit=1000'),
+        fetch('/api/categorias'),
+        fetch('/api/admin/proveedores').catch(() => null),
+      ])
+
+      const dataProductos = resProductos.ok ? await resProductos.json() : { productos: [] }
+      const dataCategorias = resCategorias.ok ? await resCategorias.json() : []
+      const dataProv = resProv?.ok ? await resProv.json() : []
+
+      setProductos(Array.isArray(dataProductos.productos) ? dataProductos.productos : [])
+      setCategorias(Array.isArray(dataCategorias) ? dataCategorias : [])
+      setProveedores(Array.isArray(dataProv) ? dataProv : [])
+    } catch {
+      setError('Error al cargar datos')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { cargarDatos() }, [])
+
+  const abrirCrear = () => { setProductoEditando(null); setModalAbierto(true) }
+  const abrirEditar = (p: Producto) => { setProductoEditando(p); setModalAbierto(true) }
+
+  const handleGuardar = () => {
+    setModalAbierto(false)
+    setProductoEditando(null)
+    cargarDatos()
+  }
+
+  const esActivo = (p: Producto) => p.activo === true || p.activo == null
+
+  const toggleEstado = async () => {
+    if (!confirmarEstado) return
+    const p = confirmarEstado
+    const activo = esActivo(p)
+    setConfirmarEstado(null)
+    try {
+      if (activo) {
+        const res = await fetch(`/api/almacen/productos/${p.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ activo: false }),
+        })
+        if (!res.ok) throw new Error('Error al desactivar producto')
+        mostrarExito('Producto desactivado correctamente')
+      } else {
+        const res = await fetch(`/api/almacen/productos/${p.id}/reactivar`, { method: 'PATCH' })
+        if (!res.ok) throw new Error('Error al reactivar producto')
+        mostrarExito('Producto reactivado correctamente')
+      }
+      cargarDatos()
+    } catch (err: unknown) {
+      mostrarError((err as { message?: string })?.message || 'Error al cambiar estado')
+    }
+  }
+
+  const conteoAlertas = useMemo(() => {
+    const hoy = new Date()
+    hoy.setHours(0, 0, 0, 0)
+    const limite = new Date(hoy)
+    limite.setDate(limite.getDate() + 30)
+
+    const idsVencidos = new Set()
+    const idsPorVencer = new Set()
+    for (const p of productos) {
+      if (!p.fechaVencimiento) continue
+      const fv = new Date(p.fechaVencimiento)
+      fv.setHours(0, 0, 0, 0)
+      if (fv < hoy) idsVencidos.add(p.id)
+      else if (fv <= limite) idsPorVencer.add(p.id)
+    }
+
+    const stockBajo = productos.filter((p) => esActivo(p) && p.stock <= 5).length
+    return { stockBajo, idsVencidos, idsPorVencer }
+  }, [productos])
+
+  const filtrados = productos.filter((p: Producto) => {
+    const hoy = new Date()
+    hoy.setHours(0, 0, 0, 0)
+    const limite = new Date(hoy)
+    limite.setDate(limite.getDate() + 30)
+    const fv = p.fechaVencimiento ? new Date(p.fechaVencimiento) : null
+    if (fv) fv.setHours(0, 0, 0, 0)
+
+    const coincideTexto =
+      p.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      p.marca?.toLowerCase().includes(busqueda.toLowerCase())
+    const prodCategoriaId = p.categoria?.id ?? p.categoriaId
+    const coincideCategoria =
+      filtroCategoria === 'Todas' || String(prodCategoriaId) === String(filtroCategoria)
+    const coincideEstado =
+      filtroEstado === 'Todos' ||
+      (filtroEstado === 'Activo' && esActivo(p)) ||
+      (filtroEstado === 'Inactivo' && !esActivo(p))
+    const coincideAlerta =
+      filtroAlerta === 'Todos' ||
+      (filtroAlerta === 'Stock bajo' && esActivo(p) && p.stock <= 5) ||
+      (filtroAlerta === 'Vencido' && (conteoAlertas.idsVencidos.has(p.id) || (fv && fv < hoy))) ||
+      (filtroAlerta === 'Por vencer' && (conteoAlertas.idsPorVencer.has(p.id) || (fv && fv >= hoy && fv <= limite)))
+    return coincideTexto && coincideCategoria && coincideEstado && coincideAlerta
+  })
+
+  useEffect(() => { setPaginaActual(1) }, [busqueda, filtroCategoria, filtroEstado, filtroAlerta])
+
+  const totalPaginas = Math.ceil(filtrados.length / ITEMS_POR_PAGINA)
+  const productosPagina = filtrados.slice(
+    (paginaActual - 1) * ITEMS_POR_PAGINA,
+    paginaActual * ITEMS_POR_PAGINA
+  )
+
+  const stockColor = (stock: number) => {
+    if (stock === 0) return 'bg-red-50'
+    if (stock <= 5) return 'bg-amber-50'
+    return ''
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar />
+      <div className="flex-1 flex flex-col">
+        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
+          <HeaderToggle />
+          <h1 className="text-xl font-bold text-gray-800">Productos</h1>
+          <button
+            onClick={abrirCrear}
+            className="ml-auto flex items-center gap-2 rounded-lg bg-[#6366f1] px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-600 cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo Producto
+          </button>
         </header>
 
-        <div className="flex-1 flex min-h-0">
-          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-4 lg:p-6 scrollbar-pos">
-            <h1 className="text-2xl font-bold text-gray-800 mb-4">Punto de Venta</h1>
+        <main className="flex-1 p-6 overflow-y-auto space-y-6">
+          {toast && (
+            <div className={`fixed top-4 right-4 z-[100] flex items-center gap-2 rounded-lg px-4 py-3 text-sm shadow-lg transition-all ${
+              (toast as ToastState).tipo === 'exito' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+            }`}>
+              <span>{(toast as ToastState).mensaje}</span>
+              <button onClick={cerrarToast} className="ml-2 hover:opacity-80 cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
-            <div className="flex gap-2 mb-4">
-              {[
-                { key: 'BOLETA_SIMPLE', label: 'Boleta Simple' },
-                { key: 'BOLETA_DNI', label: 'Boleta con DNI' },
-                { key: 'FACTURA', label: 'Factura' },
-              ].map((opt) => (
+          {(conteoAlertas.stockBajo > 0 || conteoAlertas.idsVencidos.size > 0 || conteoAlertas.idsPorVencer.size > 0) && (
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              {conteoAlertas.stockBajo > 0 && (
                 <button
-                  key={opt.key}
-                  onClick={() => { setComprobante(opt.key); setSubmitError('') }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                    comprobante === opt.key
-                      ? 'bg-violet-600 text-white shadow-sm'
-                      : 'bg-white border border-gray-200 text-gray-600 hover:border-violet-300 hover:text-violet-600'
+                  onClick={() => setFiltroAlerta(filtroAlerta === 'Stock bajo' ? 'Todos' : 'Stock bajo')}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                    filtroAlerta === 'Stock bajo'
+                      ? 'bg-amber-200 text-amber-900'
+                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                   }`}
                 >
-                  {opt.label}
+                  <AlertTriangle className="h-3 w-3" />
+                  {conteoAlertas.stockBajo} producto{conteoAlertas.stockBajo !== 1 ? 's' : ''} con stock bajo
                 </button>
-              ))}
-            </div>
-
-            {comprobante === 'BOLETA_DNI' && (
-              <input
-                value={clienteDni}
-                onChange={(e) => setClienteDni(e.target.value)}
-                className="w-full max-w-xs px-3 py-2 mb-4 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                placeholder="DNI del cliente..."
-              />
-            )}
-
-            {comprobante === 'FACTURA' && (
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <input
-                  value={facturaRuc}
-                  onChange={(e) => setFacturaRuc(e.target.value)}
-                  className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                  placeholder="RUC del cliente"
-                />
-                <input
-                  value={facturaRazonSocial}
-                  onChange={(e) => setFacturaRazonSocial(e.target.value)}
-                  className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                  placeholder="Razón Social"
-                />
-                <input
-                  value={facturaDireccion}
-                  onChange={(e) => setFacturaDireccion(e.target.value)}
-                  className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                  placeholder="Dirección"
-                />
-              </div>
-            )}
-
-            <div className="relative mb-4">
-              <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-500" size={20} />
-              <input
-                ref={barcodeRef}
-                value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { handleBarcodeSearch(barcodeInput) } }}
-                className="w-full pl-10 pr-4 py-3 border-2 border-violet-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none text-lg bg-violet-50/30"
-                placeholder="Escanea o ingresa el código de barras..."
-                autoFocus
-              />
-            </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
-              {carrito.length === 0 ? (
-                <div className="py-16 text-center text-gray-400">
-                  <ShoppingCart className="mx-auto mb-3 w-12 h-12" />
-                  <p className="text-base">Escanea un producto para agregarlo al carrito</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Producto</th>
-                        <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Precio Unit.</th>
-                        <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Cantidad</th>
-                        <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Subtotal</th>
-                        <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {carrito.map((item) => (
-                        <tr key={item.productoId} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-800 text-sm">{item.nombre}</td>
-                          <td className="px-4 py-3 text-right text-sm text-gray-600">S/ {item.precio.toFixed(2)}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-center gap-1">
-                              <button onClick={() => updateCantidad(item.productoId, -1)}
-                                className="p-1 hover:bg-gray-200 rounded cursor-pointer text-gray-600">
-                                <Minus size={14} />
-                              </button>
-                              <span className="w-8 text-center font-medium text-sm">{item.cantidad}</span>
-                              <button onClick={() => updateCantidad(item.productoId, 1)}
-                                className="p-1 hover:bg-gray-200 rounded cursor-pointer text-gray-600">
-                                <Plus size={14} />
-                              </button>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium text-sm">S/ {(item.precio * item.cantidad).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <button onClick={() => removeFromCart(item.productoId)}
-                              className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer">
-                              <Trash2 size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
               )}
-            </div>
-
-            <button
-              onClick={() => setShowProductList(!showProductList)}
-              className="flex items-center justify-center gap-2 w-full py-3 px-4 mb-4 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-violet-300 hover:text-violet-600 transition cursor-pointer"
-            >
-              <Package size={18} />
-              {showProductList ? 'Ocultar lista de productos' : 'Mostrar lista de productos'}
-              {showProductList ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-
-            {showProductList && (
-              <div>
-                <div className="flex gap-2 mb-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500"
-                      placeholder="Buscar producto por nombre o marca..."
-                    />
-                  </div>
-                  <select
-                    value={categoria}
-                    onChange={(e) => setCategoria(e.target.value)}
-                    className="px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                  >
-                    <option value="">Todas las categorías</option>
-                    {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
-                </div>
-
-                <p className="text-sm text-gray-500 mb-3">{productos.length} productos</p>
-
-                {searchError && (
-                  <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg border border-red-200 mb-4">{searchError}</div>
-                )}
-
-                {searching ? (
-                  <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
-                  </div>
-                ) : productos.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400 bg-white rounded-xl border border-gray-200">
-                    <Package className="mx-auto mb-2 w-10 h-10" />
-                    <p className="text-sm">No se encontraron productos</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                    {productos.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => addToCart(p)}
-                        disabled={p.stock === 0}
-                        className="bg-white rounded-xl border border-gray-200 p-3 text-left hover:shadow-md hover:border-violet-300 disabled:opacity-50 transition cursor-pointer flex flex-col"
-                      >
-                        <p className="font-semibold text-gray-800 text-sm truncate">{p.nombre}</p>
-                        <p className="text-xs text-gray-400 truncate mt-0.5">{p.marca}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-base font-bold text-violet-600">S/ {Number(p.precio).toFixed(2)}</span>
-                        </div>
-                        <div className="mt-1">
-                          {p.stock === 0 ? (
-                            <span className="text-xs text-red-400 font-medium">Sin stock</span>
-                          ) : (
-                            <span className="text-xs text-gray-500">{p.stock} ud.</span>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0">
-            <div className="p-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-800">Resumen de Venta</h2>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Subtotal</span>
-                  <span>S/ {subtotalSinIgv.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-2xl font-bold text-gray-800">
-                  <span>Total</span>
-                  <span>S/ {total.toFixed(2)}</span>
-                </div>
-              </div>
-
-              <div className="border-t border-gray-100 pt-4 space-y-3">
-                <label className="text-sm font-medium text-gray-600">Método de pago</label>
-                <select
-                  value={metodoPago}
-                  onChange={(e) => setMetodoPago(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+              {conteoAlertas.idsVencidos.size > 0 && (
+                <button
+                  onClick={() => setFiltroAlerta(filtroAlerta === 'Vencido' ? 'Todos' : 'Vencido')}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                    filtroAlerta === 'Vencido'
+                      ? 'bg-red-200 text-red-900'
+                      : 'bg-red-100 text-red-700 hover:bg-red-200'
+                  }`}
                 >
-                  <option value="EFECTIVO">Efectivo</option>
-                  <option value="YAPE">Yape (QR)</option>
-                </select>
+                  <AlertTriangle className="h-3 w-3" />
+                  {conteoAlertas.idsVencidos.size} producto{conteoAlertas.idsVencidos.size !== 1 ? 's' : ''} vencido{conteoAlertas.idsVencidos.size !== 1 ? 's' : ''}
+                </button>
+              )}
+              {conteoAlertas.idsPorVencer.size > 0 && (
+                <button
+                  onClick={() => setFiltroAlerta(filtroAlerta === 'Por vencer' ? 'Todos' : 'Por vencer')}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                    filtroAlerta === 'Por vencer'
+                      ? 'bg-yellow-200 text-yellow-900'
+                      : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                  }`}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  {conteoAlertas.idsPorVencer.size} producto{conteoAlertas.idsPorVencer.size !== 1 ? 's' : ''} por vencer
+                </button>
+              )}
+            </div>
+          )}
 
-                {metodoPago === 'EFECTIVO' && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Monto recibido</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={montoRecibido}
-                      onChange={(e) => setMontoRecibido(e.target.value)}
-                      className="w-full px-3 py-2.5 mt-1 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                      placeholder="Monto recibido"
-                    />
+          <div className="flex flex-wrap gap-4">
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por nombre o marca..."
+                className="w-full rounded-lg border border-gray-200 px-4 py-2 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+
+            <select
+              value={filtroCategoria}
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="Todas">Todas las categorías</option>
+              {categorias.map((c: Categoria) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="Todos">Todos los estados</option>
+              <option value="Activo">Activo</option>
+              <option value="Inactivo">Inactivo</option>
+            </select>
+
+            <select
+              value={filtroAlerta}
+              onChange={(e) => setFiltroAlerta(e.target.value)}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="Todos">Sin filtro</option>
+              <option value="Stock bajo">Stock bajo (&le;5)</option>
+              <option value="Vencido">Vencido</option>
+              <option value="Por vencer">Por vencer</option>
+            </select>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <div className="flex flex-col items-center gap-3 text-gray-400">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#6366f1] border-t-transparent" />
+                <span className="text-sm">Cargando productos...</span>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
+          ) : filtrados.length === 0 ? (
+            <div className="flex h-64 items-center justify-center text-sm text-gray-400">
+              No hay productos registrados
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="bg-[#6366f1] text-white">
+                      <th className="px-4 py-3 font-medium">Nombre</th>
+                      <th className="px-4 py-3 font-medium">Marca</th>
+                      <th className="px-4 py-3 font-medium">Categoría</th>
+                      <th className="px-4 py-3 font-medium">Precio</th>
+                      <th className="px-4 py-3 font-medium">Stock</th>
+                      <th className="px-4 py-3 font-medium">Vencimiento</th>
+                      <th className="px-4 py-3 font-medium">Estado</th>
+                      <th className="px-4 py-3 font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productosPagina.map((p: Producto, i: number) => (
+                      <tr key={p.id} className={`${stockColor(p.stock)} ${i % 2 === 0 ? 'bg-white' : ''}`}>
+                        <td className="px-4 py-3 text-gray-800">{p.nombre}</td>
+                        <td className="px-4 py-3 text-gray-500">{p.marca || '-'}</td>
+                        <td className="px-4 py-3 text-gray-500">
+                          {p.categoria?.nombre || categorias.find((c) => String(c.id) === String(p.categoria?.id ?? p.categoriaId))?.nombre || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-800">S/ {Number(p.precio).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-gray-600">{p.stock}</td>
+                        <td className="px-4 py-3 text-gray-600">{formatFecha(p.fechaVencimiento)}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              esActivo(p)
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {esActivo(p) ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => abrirEditar(p)}
+                              className="rounded-lg p-1.5 text-[#6366f1] transition-colors hover:bg-indigo-50 cursor-pointer"
+                              title="Editar"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setConfirmarEstado(p)}
+                              className={`rounded-lg p-1.5 transition-colors cursor-pointer ${
+                                esActivo(p)
+                                  ? 'text-red-500 hover:bg-red-50'
+                                  : 'text-green-500 hover:bg-green-50'
+                              }`}
+                              title={esActivo(p) ? 'Desactivar' : 'Reactivar'}
+                            >
+                              {esActivo(p) ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                            {puedeDarBaja && (
+                              <button
+                                onClick={() => setModalBaja(p)}
+                                className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50 cursor-pointer"
+                                title="Dar de baja"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                            {esActivo(p) && p.stock <= 5 && (
+                              <button
+                                onClick={() => setModalSolicitud(p)}
+                                className="rounded-lg p-1.5 text-amber-600 transition-colors hover:bg-amber-50 cursor-pointer"
+                                title="Solicitar reposición"
+                              >
+                                <Package className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6 text-xs text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm bg-red-100 border border-red-200" />
+                    Sin stock
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm bg-amber-100 border border-amber-200" />
+                    Stock crítico (&le;5)
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm bg-white border border-gray-300" />
+                    Stock normal
+                  </div>
+                </div>
 
-                {metodoPago === 'EFECTIVO' && recibido >= total && (
-                  <div className="text-sm text-green-600 font-medium text-center bg-green-50 py-2 rounded-lg">
-                    Vuelto: S/ {vuelto.toFixed(2)}
+                {totalPaginas > 1 && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <button
+                      onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+                      disabled={paginaActual === 1}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                    >
+                      Anterior
+                    </button>
+                    <span className="px-2 text-gray-500">
+                      Pág. {paginaActual} de {totalPaginas}
+                    </span>
+                    <button
+                      onClick={() => setPaginaActual((p) => Math.min(totalPaginas, p + 1))}
+                      disabled={paginaActual === totalPaginas}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                    >
+                      Siguiente
+                    </button>
                   </div>
                 )}
               </div>
+            </>
+          )}
 
-              {submitError && (
-                <div className="bg-red-50 text-red-600 text-sm px-4 py-2.5 rounded-lg border border-red-200">{submitError}</div>
-              )}
-            </div>
+          <ModalProducto
+            abierto={modalAbierto}
+            onCerrar={() => { setModalAbierto(false); setProductoEditando(null) }}
+            onGuardar={handleGuardar}
+            productoEditando={productoEditando}
+            categorias={categorias}
+          />
 
-            <div className="p-5 border-t border-gray-100 space-y-2">
-              <button
-                onClick={handleSubmit}
-                disabled={carrito.length === 0 || submitting || (metodoPago === 'EFECTIVO' && recibido < total)}
-                className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition cursor-pointer"
-              >
-                {submitting ? 'Procesando...' : `Realizar Venta`}
-              </button>
-              <button
-                onClick={clearCart}
-                disabled={carrito.length === 0}
-                className="w-full border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-xl transition disabled:opacity-50 cursor-pointer"
-              >
-                Vaciar carrito
-              </button>
+          <ModalBaja
+            abierto={!!modalBaja}
+            onCerrar={() => setModalBaja(null)}
+            producto={modalBaja}
+            onRegistrada={() => {
+              setModalBaja(null)
+              mostrarExito('Baja registrada correctamente')
+              cargarDatos()
+            }}
+          />
+
+          <ModalSolicitud
+            abierto={!!modalSolicitud}
+            onCerrar={() => setModalSolicitud(null)}
+            producto={modalSolicitud}
+            proveedores={proveedores}
+            onCreada={() => {
+              setModalSolicitud(null)
+              mostrarExito('Solicitud de reposición creada')
+              cargarDatos()
+            }}
+          />
+
+          {confirmarEstado && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+                <div className="mb-2 flex items-center gap-3">
+                  <div className={`rounded-full p-2 ${esActivo(confirmarEstado) ? 'bg-red-100' : 'bg-green-100'}`}>
+                    <AlertTriangle className={`h-5 w-5 ${esActivo(confirmarEstado) ? 'text-red-600' : 'text-green-600'}`} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-800">
+                    {esActivo(confirmarEstado) ? 'Desactivar' : 'Reactivar'} producto
+                  </h3>
+                </div>
+                <p className="mb-6 text-sm text-gray-600">
+                  ¿{esActivo(confirmarEstado) ? 'Desactivar' : 'Reactivar'} producto &ldquo;{confirmarEstado.nombre}&rdquo;?
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setConfirmarEstado(null)}
+                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-200 cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={toggleEstado}
+                    className={`rounded-lg px-4 py-2 text-sm text-white transition-colors cursor-pointer ${
+                      esActivo(confirmarEstado)
+                        ? 'bg-red-500 hover:bg-red-600'
+                        : 'bg-green-500 hover:bg-green-600'
+                    }`}
+                  >
+                    {esActivo(confirmarEstado) ? 'Desactivar' : 'Reactivar'}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </main>
       </div>
     </div>
   )
