@@ -42,3 +42,9 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Archivos internos
+*.md
+!README.md
+project_log.txt
+env
